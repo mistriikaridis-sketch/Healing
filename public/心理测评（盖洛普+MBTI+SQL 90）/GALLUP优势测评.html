@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spark 34 原力测评 - 发现你的优势</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        spark: {
+                            bg: '#FFFBF0', // 米色背景
+                            red: '#F87171', 
+                            blue: '#3B82F6', 
+                            green: '#10B981', 
+                            purple: '#8B5CF6', 
+                            dark: '#1a1a1a',  
+                            warmGray: '#78716c', 
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans SC', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #FFFBF0; color: #1a1a1a; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.05);
+        }
+        .btn-jelly { transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .btn-jelly:active { transform: scale(0.95); }
+        .btn-jelly:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 15px 30px rgba(0,0,0,0.15); }
+        
+        .title-floating {
+            text-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            letter-spacing: 0.05em; 
+        }
+
+        .progress-bar { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-spark-green selection:text-white">
+
+    <nav class="p-6 flex justify-between items-center w-full max-w-6xl mx-auto z-10">
+        <div class="text-2xl font-display font-bold tracking-tighter flex items-center gap-2">
+            <span class="text-3xl">🧬</span> 
+            <span class="bg-gradient-to-r from-spark-green/80 to-spark-blue/80 bg-clip-text text-transparent">Spark 34</span>
+        </div>
+        <div class="text-sm font-bold text-gray-400" id="user-display"></div>
+    </nav>
+
+    <main id="app" class="flex-grow flex items-center justify-center p-4 w-full max-w-6xl mx-auto relative">
+    </main>
+
+    <footer class="p-8 text-center text-gray-400 text-xs font-medium">
+        &copy; 2026 Spark Assessment. Core logic inspired by CliftonStrengths.
+    </footer>
+
+    <script>
+        // --- A. 数据模型 ---
+        const DIMENSIONS = {
+            'STR_1': { name: '分析 (Analytical)', quadrant: '战略思维', color: '#10B981', desc: '你需要证据。你喜欢寻找数据中的模式和联系。' },
+            'STR_2': { name: '回顾 (Context)', quadrant: '战略思维', color: '#10B981', desc: '你回顾过去来理解当下。历史是你做决策的蓝图。' },
+            'STR_3': { name: '前瞻 (Futuristic)', quadrant: '战略思维', color: '#10B981', desc: '你受未来愿景的启发，并能用它激励他人。' },
+            'STR_4': { name: '理念 (Ideation)', quadrant: '战略思维', color: '#10B981', desc: '你痴迷于概念。你能在看似无关的现象中找到联系。' },
+            'STR_5': { name: '搜集 (Input)', quadrant: '战略思维', color: '#10B981', desc: '你不仅充满好奇，还喜欢收藏信息、工具或关系。' },
+            'STR_6': { name: '思维 (Intellection)', quadrant: '战略思维', color: '#10B981', desc: '你喜欢思考过程本身，享受独处时的深度内省。' },
+            'STR_7': { name: '学习 (Learner)', quadrant: '战略思维', color: '#10B981', desc: '你有强烈的学习渴望，过程比结果更让你兴奋。' },
+            'STR_8': { name: '战略 (Strategic)', quadrant: '战略思维', color: '#10B981', desc: '你能透过混乱看到各种方案，并迅速选出最佳路径。' },
+            'REL_1': { name: '适应 (Adaptability)', quadrant: '关系建立', color: '#3B82F6', desc: '你活在当下，面对突发变化能灵活应对，随遇而安。' },
+            'REL_2': { name: '关联 (Connectedness)', quadrant: '关系建立', color: '#3B82F6', desc: '你相信万物皆有因果，几乎没有任何事情是巧合。' },
+            'REL_3': { name: '伯乐 (Developer)', quadrant: '关系建立', color: '#3B82F6', desc: '你善于发现别人的潜能和微小的进步，并以此为乐。' },
+            'REL_4': { name: '体谅 (Empathy)', quadrant: '关系建立', color: '#3B82F6', desc: '你能感同身受地体会他人的情感，像体验自己的一样。' },
+            'REL_5': { name: '和谐 (Harmony)', quadrant: '关系建立', color: '#3B82F6', desc: '你寻求共识，避免冲突，擅长寻找双方的一致性。' },
+            'REL_6': { name: '包容 (Includer)', quadrant: '关系建立', color: '#3B82F6', desc: '你注意那些被忽略的人，并努力把他们拉进圈子。' },
+            'REL_7': { name: '个别 (Individualization)', quadrant: '关系建立', color: '#3B82F6', desc: '你对每个人的独特特质着迷，擅长根据个人特点分配任务。' },
+            'REL_8': { name: '积极 (Positivity)', quadrant: '关系建立', color: '#3B82F6', desc: '你充满热情，你的乐观具有极强的传染力。' },
+            'REL_9': { name: '交往 (Relator)', quadrant: '关系建立', color: '#3B82F6', desc: '你享受与亲密朋友的深层关系，并努力加深这种关系。' },
+            'INF_1': { name: '行动 (Activator)', quadrant: '影响力', color: '#F87171', desc: '你是催化剂。一旦决定，你必须立即行动，无法等待。' },
+            'INF_2': { name: '统率 (Command)', quadrant: '影响力', color: '#F87171', desc: '你有掌舵的欲望，面对对抗时不会退缩，立场鲜明。' },
+            'INF_3': { name: '沟通 (Communication)', quadrant: '影响力', color: '#F87171', desc: '你擅长用生动的语言表达思想，是天生的演说家。' },
+            'INF_4': { name: '竞争 (Competition)', quadrant: '影响力', color: '#F87171', desc: '你需要通过与他人的比较来衡量进步，你渴望赢。' },
+            'INF_5': { name: '完美 (Maximizer)', quadrant: '影响力', color: '#F87171', desc: '你专注于优势，致力于把“优秀”变成“卓越”。' },
+            'INF_6': { name: '自信 (Self-Assurance)', quadrant: '影响力', color: '#F87171', desc: '你对自己的判断和能力深信不疑，内心极其坚定。' },
+            'INF_7': { name: '追求 (Significance)', quadrant: '影响力', color: '#F87171', desc: '你希望在他人眼中显得重要，渴望工作产生重大影响。' },
+            'INF_8': { name: '取悦 (Woo)', quadrant: '影响力', color: '#F87171', desc: '你喜欢结识陌生人并赢得他们的好感，这让你充满能量。' },
+            'EXE_1': { name: '成就 (Achiever)', quadrant: '执行力', color: '#8B5CF6', desc: '你精力旺盛，不知疲倦，每天都需要有实质性的产出。' },
+            'EXE_2': { name: '统筹 (Arranger)', quadrant: '执行力', color: '#8B5CF6', desc: '你是组织大师，面对复杂局面能迅速调整资源，达到最佳配置。' },
+            'EXE_3': { name: '信仰 (Belief)', quadrant: '执行力', color: '#8B5CF6', desc: '你拥有核心的价值观，这些价值观是你生活的基石和动力。' },
+            'EXE_4': { name: '公平 (Consistency)', quadrant: '执行力', color: '#8B5CF6', desc: '你对每个人一视同仁，坚信规则明确和公平执行至关重要。' },
+            'EXE_5': { name: '审慎 (Deliberative)', quadrant: '执行力', color: '#8B5CF6', desc: '你行事小心，不仅预见风险，更擅长规避风险。' },
+            'EXE_6': { name: '纪律 (Discipline)', quadrant: '执行力', color: '#8B5CF6', desc: '你需要结构和秩序。你的世界由流程、期限和计划组成。' },
+            'EXE_7': { name: '专注 (Focus)', quadrant: '执行力', color: '#8B5CF6', desc: '你有明确的目标，这让你能够排除干扰，保持高效。' },
+            'EXE_8': { name: '责任 (Responsibility)', quadrant: '执行力', color: '#8B5CF6', desc: '你对自己承诺的事情有强烈的心理约束力，言出必行。' },
+            'EXE_9': { name: '排难 (Restorative)', quadrant: '执行力', color: '#8B5CF6', desc: '你喜欢解决问题。让出现故障的事物恢复正常让你很有成就感。' }
+        };
+        const QUESTIONS = [
+            { id: 1, dim: 'STR_1', text: '如果一个观点没有数据或逻辑支持，我通常很难被说服。' },
+            { id: 2, dim: 'STR_1', text: '我喜欢拆解复杂的理论，寻找其中的根本原因。' },
+            { id: 3, dim: 'STR_2', text: '在开始新项目前，我必须先了解这件事情的背景和历史渊源。' },
+            { id: 4, dim: 'STR_2', text: '通过研究过去发生的事情，我能更准确地预测未来。' },
+            { id: 5, dim: 'STR_3', text: '我经常发现自己在这个季度思考下个年度、甚至更远的事情。' },
+            { id: 6, dim: 'STR_3', text: '我能生动地向他人描绘未来的景象，并让他们为此感到兴奋。' },
+            { id: 7, dim: 'STR_4', text: '我的脑子里总是充满了各种看似疯狂或不相关的新点子。' },
+            { id: 8, dim: 'STR_4', text: '我讨厌墨守成规，总是在想“是不是有更好的办法”。' },
+            { id: 9, dim: 'STR_5', text: '我非常好奇，喜欢收集各种信息、文章或工具，即使现在用不上。' },
+            { id: 10, dim: 'STR_5', text: '我讨厌不知道答案的感觉，这会驱使我立即去查阅资料。' },
+            { id: 11, dim: 'STR_6', text: '我非常享受独处的时光，这样我就可以进行深度的思考。' },
+            { id: 12, dim: 'STR_6', text: '朋友们常说我是一个非常爱思考、甚至有点“哲学”的人。' },
+            { id: 13, dim: 'STR_7', text: '对我来说，学习新技能的过程比实际使用这项技能更有趣。' },
+            { id: 14, dim: 'STR_7', text: '我很容易从一个兴趣点跳到另一个兴趣点，渴望快速掌握新知。' },
+            { id: 15, dim: 'STR_8', text: '面对复杂混乱的局面，我能迅速识别出模式并找到最佳路径。' },
+            { id: 16, dim: 'STR_8', text: '在做决定时，我会自动在脑海中预演各种可能的结果和应对方案。' },
+            { id: 17, dim: 'REL_1', text: '我不害怕突发状况，甚至觉得在压力和变化中工作很刺激。' },
+            { id: 18, dim: 'REL_1', text: '由于我活在当下，制定长远的死板计划让我感到很不舒服。' },
+            { id: 19, dim: 'REL_2', text: '我相信茫茫人海中相遇都是缘分，每件事的发生都有其意义。' },
+            { id: 20, dim: 'REL_2', text: '我能看到大局，明白每一个微小的行动是如何影响整体的。' },
+            { id: 21, dim: 'REL_3', text: '看到他人的微小进步和成长，比我自己取得成就更让我开心。' },
+            { id: 22, dim: 'REL_3', text: '我是天生的导师，即便对方很差劲，我也能看到他的潜力。' },
+            { id: 23, dim: 'REL_4', text: '我能敏锐地察觉到身边人的情绪变化，即使他们什么都没说。' },
+            { id: 24, dim: 'REL_4', text: '当朋友难过时，我不仅是理解，而是能真切地感受到同样的痛苦。' },
+            { id: 25, dim: 'REL_5', text: '在团队争执中，我通常是那个试图平息矛盾、寻找共识的人。' },
+            { id: 26, dim: 'REL_5', text: '我认为为了所谓的“真理”而破坏关系是不值得的，和气生财。' },
+            { id: 27, dim: 'REL_6', text: '看到有人在聚会中落单，我会本能地想把他拉进我们的圈子。' },
+            { id: 28, dim: 'REL_6', text: '我倾向于扩大团队的规模，认为“人越多越好”。' },
+            { id: 29, dim: 'REL_7', text: '我能凭直觉知道给每个人送什么礼物最合适。' },
+            { id: 30, dim: 'REL_7', text: '我讨厌“一刀切”的管理方式，因为每个人都是独一无二的。' },
+            { id: 31, dim: 'REL_8', text: '我总是能在糟糕的情况中看到积极的一面，并以此鼓励他人。' },
+            { id: 32, dim: 'REL_8', text: '我喜欢赞美他人，这对我来说是很自然且频繁的事情。' },
+            { id: 33, dim: 'REL_9', text: '相比于在大聚会中认识很多人，我更喜欢和几个密友深度交谈。' },
+            { id: 34, dim: 'REL_9', text: '我不轻易信任他人，但一旦认定你是朋友，我将极度忠诚。' },
+            { id: 35, dim: 'INF_1', text: '一旦有了想法，我就想立即动手，讨论和等待让我烦躁。' },
+            { id: 36, dim: 'INF_1', text: '我是那个按下“启动键”的人，即便计划还不完美，动起来再说。' },
+            { id: 37, dim: 'INF_2', text: '在危机时刻，我不介意接管控制权，并告诉大家该怎么做。' },
+            { id: 38, dim: 'INF_2', text: '我不害怕与人对峙，如果这是解决问题所必须的。' },
+            { id: 39, dim: 'INF_3', text: '我喜欢讲故事，并能把枯燥的信息变得生动有趣。' },
+            { id: 40, dim: 'INF_3', text: '我擅长在众人面前表达，寻找合适的词汇对我来说很容易。' },
+            { id: 41, dim: 'INF_4', text: '如果不把我的成绩和别人进行比较，我就不知道自己做得好不好。' },
+            { id: 42, dim: 'INF_4', text: '我讨厌输，哪怕只是在一场休闲的游戏中。' },
+            { id: 43, dim: 'INF_5', text: '我对把事情从“差”做到“一般”没兴趣，我只想把“好”做到“完美”。' },
+            { id: 44, dim: 'INF_5', text: '我喜欢和高手合作，避开那些能力不足的人。' },
+            { id: 45, dim: 'INF_6', text: '即使所有人都反对，我也坚信自己的直觉和判断是正确的。' },
+            { id: 46, dim: 'INF_6', text: '我不需要别人告诉我该怎么做，我有自己的内在罗盘。' },
+            { id: 47, dim: 'INF_7', text: '我希望我的工作被大家认可，被视为重要人物对我很重要。' },
+            { id: 48, dim: 'INF_7', text: '我倾向于选择那些能产生巨大社会影响力的高风险项目。' },
+            { id: 49, dim: 'INF_8', text: '我不怕进入满是陌生人的房间，认识新朋友让我感到兴奋。' },
+            { id: 50, dim: 'INF_8', text: '我擅长破冰，能在几分钟内让陌生人喜欢上我。' },
+            { id: 51, dim: 'EXE_1', text: '如果一天结束时没有实质性的产出，我会感到若有所失。' },
+            { id: 52, dim: 'EXE_1', text: '我非常享受从待办清单上划掉任务的那种成就感。' },
+            { id: 53, dim: 'EXE_2', text: '面对突发变故，我能迅速重新调整计划和资源，而不是感到恐慌。' },
+            { id: 54, dim: 'EXE_2', text: '我喜欢同时处理多项任务，并在其中找到最佳的平衡点。' },
+            { id: 55, dim: 'EXE_3', text: '我做决定时，主要依据是我内心深处坚信的道德或价值观。' },
+            { id: 56, dim: 'EXE_3', text: '为了我认为正确的事情，我不惜牺牲金钱或地位。' },
+            { id: 57, dim: 'EXE_4', text: '我痛恨“走后门”或特殊待遇，规则对每个人都应该是一样的。' },
+            { id: 58, dim: 'EXE_4', text: '我的工作风格非常稳定，大家都知道可以预测我的行为。' },
+            { id: 59, dim: 'EXE_5', text: '在做决定前，我会仔细思考所有可能出错的地方。' },
+            { id: 60, dim: 'EXE_5', text: '我交友谨慎，因为我认为必须保护自己免受社交风险。' },
+            { id: 61, dim: 'EXE_6', text: '我喜欢井井有条的环境，混乱和无序会让我无法工作。' },
+            { id: 62, dim: 'EXE_6', text: '我习惯制定详细的日程表，并严格按照期限执行。' },
+            { id: 63, dim: 'EXE_7', text: '一旦确定了目标，我就很难被周围的噪音干扰。' },
+            { id: 64, dim: 'EXE_7', text: '我擅长在一段时间内集中全部精力攻克一个难题。' },
+            { id: 65, dim: 'EXE_8', text: '如果我承诺了某事却没做到，我会感到深深的愧疚和不安。' },
+            { id: 66, dim: 'EXE_8', text: '我是团队中那个你可以完全把任务托付给他的人。' },
+            { id: 67, dim: 'EXE_9', text: '我喜欢解决难题，特别是那些别人已经放弃的烂摊子。' },
+            { id: 68, dim: 'EXE_9', text: '通过分析症状找到问题的根源，这让我很有成就感。' }
+        ];
+
+        let state = {
+            view: 'home',
+            user: { name: '', email: '' },
+            currentQIndex: 0,
+            answers: {},
+            results: []
+        };
+
+        const app = document.getElementById('app');
+
+        // --- 核心逻辑修改 A：初始化检查 LocalStorage ---
+        function init() {
+            try {
+                const savedState = localStorage.getItem('spark34_save');
+                if (savedState) {
+                    const parsed = JSON.parse(savedState);
+                    // 只有当视图不是 'report' 且用户确认时，才恢复进度
+                    if (parsed.view !== 'report' && parsed.currentQIndex < QUESTIONS.length) {
+                         if(confirm(`检测到您有未完成的进度 (第 ${parsed.currentQIndex + 1}/${QUESTIONS.length} 题)，是否继续？`)) {
+                           state = parsed;
+                         } else {
+                           // 如果用户选择取消，则清除旧缓存
+                           localStorage.removeItem('spark34_save');
+                         }
+                    }
+                }
+            } catch(e) {
+                console.error("Storage read error", e);
+            }
+            render();
+        }
+
+        function render() {
+            app.innerHTML = '';
+            if (state.view === 'home') renderHome();
+            else if (state.view === 'login') renderLogin();
+            else if (state.view === 'test') renderTest();
+            else if (state.view === 'processing') renderProcessing();
+            else if (state.view === 'report') renderReport();
+        }
+
+        function renderHome() {
+            app.innerHTML = `
+                <div class="text-center animate-fade-in max-w-4xl mx-auto px-4">
+                    <div class="mb-10 relative inline-block animate-float">
+                        <div class="absolute inset-0 bg-spark-green rounded-full blur-3xl opacity-20"></div>
+                        <span class="relative text-8xl drop-shadow-sm">🧬</span>
+                    </div>
+                    
+                    <h1 class="text-5xl md:text-6xl font-display font-black mb-10 text-spark-dark title-floating leading-tight">
+                        发现你的优势
+                    </h1>
+
+                    <button onclick="goToLogin()" class="btn-jelly bg-spark-dark text-white text-xl font-bold py-5 px-16 rounded-full shadow-2xl hover:shadow-gray-400/50 mb-12 tracking-wide">
+                        🚀 开始测评
+                    </button>
+
+                    <div class="max-w-3xl mx-auto flex flex-col gap-4 text-lg text-spark-warmGray font-medium leading-relaxed">
+                        <p>人人皆有所长</p>
+                        <p>我们将基于 <strong class="text-spark-dark">34 项克利夫顿优势主题模型</strong></p>
+                        <p class="flex flex-wrap items-center justify-center gap-2">
+                            <span>68 道题</span>
+                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span>约 10 分钟</span>
+                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                            <span>解锁你最强大的</span>
+                            <span class="text-spark-dark bg-spark-green/20 px-2 py-0.5 rounded">Top 5 优势</span>
+                        </p>
+                    </div>
+
+                    <div class="mt-16 flex justify-center gap-8 text-xs font-bold text-gray-400 uppercase tracking-widest opacity-60">
+                        <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-spark-green"></div>战略</span>
+                        <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-spark-blue"></div>关系</span>
+                        <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-spark-red"></div>影响</span>
+                        <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-spark-purple"></div>执行</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLogin() {
+            app.innerHTML = `
+                <div class="glass-card p-10 md:p-14 rounded-[40px] w-full max-w-lg animate-slide-up text-center">
+                    <h2 class="text-3xl font-display font-bold mb-3 text-gray-800">准备好了吗？</h2>
+                    <p class="text-gray-500 mb-10">输入昵称生成你的专属报告</p>
+                    <div class="space-y-5 text-left">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-400 mb-2 ml-1">昵称</label>
+                            <input type="text" id="input-name" class="w-full p-5 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-spark-blue focus:bg-white outline-none transition-all font-bold text-gray-800 text-lg placeholder-gray-300" placeholder="例如：Alex">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-400 mb-2 ml-1">邮箱 (可选)</label>
+                            <input type="email" id="input-email" class="w-full p-5 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-spark-blue focus:bg-white outline-none transition-all font-bold text-gray-800 text-lg placeholder-gray-300" placeholder="用于找回结果">
+                        </div>
+                    </div>
+                    <button onclick="startTest()" class="mt-10 w-full btn-jelly bg-spark-blue text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-200 text-lg">
+                        进入测评系统 ->
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderTest() {
+            const question = QUESTIONS[state.currentQIndex];
+            const progress = ((state.currentQIndex + 1) / QUESTIONS.length) * 100;
+            const dimColor = DIMENSIONS[question.dim].color;
+
+            app.innerHTML = `
+                <div class="w-full max-w-3xl animate-fade-in">
+                    <div class="flex justify-between items-end mb-4 px-2">
+                        <span class="text-4xl font-display font-bold text-gray-200">Q${state.currentQIndex + 1}</span>
+                        <span class="text-sm font-bold text-gray-400">${Math.round(progress)}%</span>
+                    </div>
+                    <div class="h-4 bg-white rounded-full overflow-hidden shadow-inner mb-10">
+                        <div class="h-full progress-bar shadow-lg" style="width: ${progress}%; background-color: ${dimColor}"></div>
+                    </div>
+
+                    <div class="glass-card p-10 md:p-16 rounded-[40px] text-center mb-10 min-h-[320px] flex flex-col justify-center items-center relative overflow-hidden transition-all">
+                        <div class="absolute top-0 left-0 w-full h-3" style="background-color: ${dimColor}"></div>
+                        <h3 class="text-2xl md:text-4xl font-bold text-gray-800 leading-tight mb-6">
+                            "${question.text}"
+                        </h3>
+                        <p class="text-gray-400 font-medium">请凭第一直觉回答</p>
+                    </div>
+
+                    <div class="grid grid-cols-5 gap-3 md:gap-6">
+                        ${[1,2,3,4,5].map(score => `
+                            <button onclick="handleAnswer(${question.id}, ${score})" 
+                                class="btn-jelly flex flex-col items-center gap-3 group">
+                                <div class="w-14 h-14 md:w-20 md:h-20 rounded-3xl flex items-center justify-center text-2xl font-bold shadow-sm border-2 border-white transition-all bg-white text-gray-300 group-hover:scale-110"
+                                     style="--hover-color: ${dimColor}">
+                                    ${score}
+                                </div>
+                                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                                    ${score === 1 ? '非常不符' : (score === 5 ? '非常符合' : '')}
+                                </span>
+                            </button>
+                        `).join('')}
+                    </div>
+                    
+                    <style>
+                        .btn-jelly:hover div { 
+                            background-color: ${dimColor} !important; 
+                            color: white !important; 
+                            border-color: ${dimColor} !important;
+                            box-shadow: 0 10px 20px -5px ${dimColor}80 !important;
+                        }
+                    </style>
+                </div>
+            `;
+        }
+
+        function renderProcessing() {
+            app.innerHTML = `
+                <div class="text-center animate-fade-in">
+                    <div class="relative w-32 h-32 mx-auto mb-10">
+                        <div class="absolute inset-0 border-8 border-gray-100 rounded-full"></div>
+                        <div class="absolute inset-0 border-8 border-t-spark-blue rounded-full animate-spin"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-4xl">🧬</div>
+                    </div>
+                    <h2 class="text-3xl font-bold text-spark-dark mb-4">正在解码你的 DNA...</h2>
+                    <p class="text-gray-500 font-medium" id="loading-text">整合 68 个行为数据点...</p>
+                </div>
+            `;
+            setTimeout(() => document.getElementById('loading-text').innerText = "分析 34 个维度倾向...", 1000);
+            setTimeout(() => document.getElementById('loading-text').innerText = "提取 Top 5 核心优势...", 2500);
+            setTimeout(calculateAndShowResults, 4000);
+        }
+
+        function renderReport() {
+            // --- 核心逻辑修改 C：播放礼花特效 ---
+            try {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#F87171', '#3B82F6', '#10B981', '#8B5CF6']
+                });
+            } catch(e) { console.log('Confetti not loaded'); }
+            // --------------------------------
+
+            const top5 = state.results.slice(0, 5);
+            
+            app.innerHTML = `
+                <div id="report-container" class="w-full max-w-5xl bg-white p-8 md:p-16 rounded-[50px] shadow-2xl animate-fade-in relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-gray-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+
+                    <div class="text-center mb-16 relative z-10">
+                        <p class="text-gray-400 font-bold uppercase tracking-[0.2em] mb-4 text-sm">Spark 34 Strengths Report</p>
+                        <h2 class="text-5xl md:text-6xl font-display font-black text-gray-900 mb-4">
+                            👋 ${state.user.name} 的优势测评报告
+                        </h2>
+                        <div class="inline-block bg-gray-100 rounded-full px-6 py-2">
+                            <p class="text-gray-600 font-medium">
+                                你的核心驱动力：<span class="font-black text-xl ml-1" style="color:${top5[0].color}">${top5[0].quadrant}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-16">
+                        ${top5.map((item, index) => {
+                            const parts = item.name.split(' (');
+                            const cn = parts[0];
+                            const en = parts[1] ? parts[1].replace(')', '') : '';
+                            
+                            return `
+                            <div class="relative group h-full">
+                                <div class="p-6 rounded-[30px] text-white h-full flex flex-col justify-between shadow-lg transition-transform" style="background-color: ${item.color}">
+                                    <div>
+                                        <div class="text-5xl opacity-30 font-display font-black mb-4">#${index + 1}</div>
+                                        
+                                        <h3 class="text-2xl font-bold leading-tight">${cn}</h3>
+                                        <p class="text-sm opacity-80 font-medium mb-3">${en}</p>
+                                        
+                                        <div class="text-[10px] font-bold uppercase bg-black/10 inline-block px-3 py-1 rounded-lg mb-4 backdrop-blur-sm">
+                                            ${item.quadrant}
+                                        </div>
+                                        <p class="text-sm opacity-95 leading-relaxed font-medium border-t border-white/20 pt-4">
+                                            ${item.desc}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center mb-12">
+                        <div class="bg-gray-50 p-8 rounded-[40px] flex justify-center items-center aspect-square relative">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                        <div>
+                            <h3 class="text-3xl font-bold mb-8 text-gray-900 flex items-center gap-3">
+                                <span class="bg-spark-yellow w-8 h-8 rounded-lg flex items-center justify-center text-sm">💡</span> 
+                                发展建议
+                            </h3>
+                            <ul class="space-y-8">
+                                <li class="flex items-start">
+                                    <div class="text-4xl mr-6 mt-1">🌟</div>
+                                    <div>
+                                        <h4 class="text-xl font-bold text-gray-900 mb-2">投资你的 Top 1：${top5[0].name.split(' (')[0]}</h4>
+                                        <p class="text-gray-600 leading-relaxed">这是你的核心王牌。问问自己：这周我可以如何在工作中更多地使用这个才干？不要试图弥补弱点，而是最大化这个优势。</p>
+                                    </div>
+                                </li>
+                                <li class="flex items-start">
+                                    <div class="text-4xl mr-6 mt-1">🤝</div>
+                                    <div>
+                                        <h4 class="text-xl font-bold text-gray-900 mb-2">寻找互补伙伴</h4>
+                                        <p class="text-gray-600 leading-relaxed">你的主要能量在<strong>${top5[0].quadrant}</strong>。试着找一个在<strong>${state.results[33].quadrant}</strong>（你的相对盲区）方面突出的人合作，这将让你们的效率倍增。</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center border-t border-gray-100 pt-8">
+                         <p class="text-gray-400 text-xs font-bold uppercase tracking-widest">Generated by Spark Assessment 2026</p>
+                    </div>
+
+                    <div class="absolute top-8 right-8 flex gap-3" data-html2canvas-ignore>
+                        <button onclick="downloadPDF()" class="bg-gray-900 text-white px-6 py-3 rounded-full font-bold shadow-xl hover:scale-105 transition-transform text-sm flex items-center gap-2">
+                            📥 保存 PDF
+                        </button>
+                        <button onclick="location.reload()" class="bg-gray-100 text-gray-500 px-6 py-3 rounded-full font-bold hover:bg-gray-200 transition-colors text-sm">
+                            🔄 重测
+                        </button>
+                    </div>
+                </div>
+            `;
+            setTimeout(drawChart, 100);
+        }
+
+        // --- 逻辑控制 ---
+        function goToLogin() { state.view = 'login'; render(); }
+        
+        function startTest() {
+            const name = document.getElementById('input-name').value;
+            if (!name) return alert('请输入昵称');
+            state.user.name = name;
+            state.user.email = document.getElementById('input-email').value;
+            document.getElementById('user-display').innerText = `正在分析: ${name}`;
+            state.view = 'test';
+            render();
+        }
+
+        function handleAnswer(qId, score) {
+            state.answers[qId] = score;
+
+            // --- 核心逻辑修改 B：实时保存进度 ---
+            try {
+                localStorage.setItem('spark34_save', JSON.stringify(state));
+            } catch(e) {}
+            // -------------------------------
+
+            if (state.currentQIndex < QUESTIONS.length - 1) {
+                state.currentQIndex++;
+                render();
+            } else {
+                // 完成后清除缓存
+                localStorage.removeItem('spark34_save');
+                state.view = 'processing';
+                render();
+            }
+        }
+
+        function calculateAndShowResults() {
+            let scores = {};
+            for (let code in DIMENSIONS) scores[code] = 0;
+            QUESTIONS.forEach(q => {
+                const score = state.answers[q.id] || 3;
+                scores[q.dim] += score;
+            });
+            let resultsArray = Object.keys(scores).map(code => ({
+                code: code,
+                score: scores[code],
+                ...DIMENSIONS[code]
+            }));
+            resultsArray.sort((a, b) => b.score - a.score);
+            state.results = resultsArray;
+            state.view = 'report';
+            render();
+        }
+
+        function drawChart() {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            let quadrantData = { '战略思维': 0, '关系建立': 0, '影响力': 0, '执行力': 0 };
+            state.results.forEach(r => {
+                quadrantData[r.quadrant] += r.score;
+            });
+
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: Object.keys(quadrantData),
+                    datasets: [{
+                        label: '能量分布',
+                        data: Object.values(quadrantData),
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderColor: '#3B82F6',
+                        pointBackgroundColor: ['#10B981', '#3B82F6', '#F87171', '#8B5CF6'],
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: { color: '#e5e7eb' },
+                            grid: { color: '#e5e7eb', circular: true },
+                            pointLabels: { font: { size: 14, weight: 'bold', family: 'Noto Sans SC' }, color: '#1f2937' },
+                            suggestedMin: 0,
+                            ticks: { display: false }
+                        }
+                    },
+                    plugins: { legend: { display: false } },
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        async function downloadPDF() {
+            const btn = document.querySelector('button[onclick="downloadPDF()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ 生成中...";
+            
+            window.scrollTo(0,0);
+            
+            const element = document.getElementById('report-container');
+            const canvas = await html2canvas(element, { 
+                scale: 3,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false
+            });
+            
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            
+            if (pdfHeight > pdf.internal.pageSize.getHeight()) {
+                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            } else {
+                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+            
+            pdf.save(`Spark34_Report_${state.user.name}.pdf`);
+            btn.innerHTML = "✅ 完成";
+            setTimeout(() => btn.innerHTML = originalText, 2000);
+        }
+
+        // 启动时初始化
+        init();
+    </script>
+</body>
+
+</html>

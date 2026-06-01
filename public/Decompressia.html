@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Decompressia</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        /* --- 极简白视觉系统 --- */
+        :root {
+            --bg: #ffffff;
+            --text: #333333;
+            --line: #f0f0f0;
+            --accent: #000000;
+            --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            overflow: hidden; width: 100vw; height: 100vh;
+        }
+
+        /* --- 1. 主菜单层 --- */
+        #menu-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100;
+            display: flex; flex-direction: column;
+            background: var(--bg);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .header {
+            padding: 80px 20px 40px; text-align: center;
+        }
+        h1 { 
+            font-size: 2.5rem; font-weight: 300; letter-spacing: 2px; margin-bottom: 8px; 
+            color: var(--accent);
+        }
+        .subtitle { 
+            font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; color: #999; 
+        }
+
+        /* 3列 x 2行 网格 */
+        .grid-nav {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 220px);
+            max-width: 1000px; margin: 0 auto; width: 100%;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            align-content: center;
+        }
+
+        .nav-item {
+            background: var(--bg);
+            border-right: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        
+        /* 边框处理 */
+        .nav-item:nth-child(3n) { border-right: none; }
+        .nav-item:nth-last-child(-n+3) { border-bottom: none; }
+
+        .nav-item:hover { background: #fafafa; }
+        .nav-item:active { background: #f5f5f5; }
+
+        .nav-icon { 
+            font-size: 2.5rem; margin-bottom: 20px; color: #444; font-weight: lighter;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-item:hover .nav-icon { transform: scale(1.15); color: #000; }
+        
+        .nav-name { 
+            font-size: 0.8rem; letter-spacing: 1.5px; text-transform: uppercase; color: #888; 
+        }
+
+        /* --- 2. 应用容器 --- */
+        #app-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; background: var(--bg);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        #app-container.active { opacity: 1; pointer-events: auto; }
+
+        /* --- 3. UI 控件 --- */
+        #back-btn {
+            position: fixed; top: 30px; right: 30px; z-index: 200;
+            background: transparent; border: none; cursor: pointer;
+            width: 40px; height: 40px;
+            opacity: 0; transition: opacity 0.3s 0.3s;
+        }
+        #back-btn:hover { opacity: 0.6; }
+        
+        .close-icon { width: 100%; height: 100%; position: relative; }
+        .close-icon::before, .close-icon::after {
+            content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px;
+            background: #333; transform: rotate(45deg);
+        }
+        .close-icon::after { transform: rotate(-45deg); }
+
+        .hint {
+            position: fixed; bottom: 40px; left: 0; width: 100%; text-align: center;
+            pointer-events: none; z-index: 150;
+            opacity: 0; transition: opacity 0.5s 0.3s;
+            color: #ccc; font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            .grid-nav { 
+                grid-template-columns: repeat(2, 1fr); 
+                grid-template-rows: repeat(3, 1fr);
+                border-bottom: none;
+            }
+            .nav-item { height: 180px; border-bottom: 1px solid var(--line); }
+            .nav-item:nth-child(3n) { border-right: 1px solid var(--line); } 
+            .nav-item:nth-child(2n) { border-right: none; }
+            .nav-item:nth-last-child(-n+2) { border-bottom: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menu-layer">
+        <div class="header">
+            <h1>Decompressia</h1>
+            <div class="subtitle">Interactive Art Collection</div>
+        </div>
+        <div class="grid-nav" id="grid"></div>
+    </div>
+
+    <div id="app-container"></div>
+    <div class="hint" id="hint-text"></div>
+    
+    <button id="back-btn" onclick="goHome()">
+        <div class="close-icon"></div>
+    </button>
+
+    <script>
+        // --- 指定的 6 个模块 ---
+        const apps = [
+            { id: 1, name: "Fluid", icon: "≈", hint: "MOVE TO STIR" },
+            { id: 2, name: "Elastic", icon: "◎", hint: "PULL CENTER" },
+            { id: 3, name: "Orbit", icon: "○", hint: "FLING INTO ORBIT" },
+            { id: 4, name: "Pixels", icon: "▦", hint: "DRAW TO DISINTEGRATE" },
+            { id: 5, name: "Swarm", icon: "⁖", hint: "PARTICLES FOLLOW" },
+            { id: 6, name: "Bloom", icon: "❋", hint: "CLICK TO GROW" }
+        ];
+
+        let currentP5 = null;
+
+        // --- 初始化菜单 ---
+        const grid = document.getElementById('grid');
+        apps.forEach((app, i) => {
+            let item = document.createElement('div');
+            item.className = 'nav-item';
+            item.innerHTML = `
+                <div class="nav-icon">${app.icon}</div>
+                <div class="nav-name">${app.name}</div>
+            `;
+            item.onclick = () => launchApp(i);
+            grid.appendChild(item);
+        });
+
+        // --- 核心控制 ---
+        async function launchApp(index) {
+            const app = apps[index];
+            document.getElementById('menu-layer').style.transform = 'translateY(-100%)';
+            document.getElementById('app-container').classList.add('active');
+            document.getElementById('back-btn').style.opacity = 1;
+            const hint = document.getElementById('hint-text');
+            hint.innerText = app.hint;
+            hint.style.opacity = 1;
+
+            await Tone.start();
+
+            const container = document.getElementById('app-container');
+            container.innerHTML = '';
+            runSketch(app.id, container);
+        }
+
+        function goHome() {
+            if (currentP5) { currentP5.remove(); currentP5 = null; }
+            document.getElementById('menu-layer').style.transform = 'translateY(0)';
+            document.getElementById('app-container').classList.remove('active');
+            document.getElementById('back-btn').style.opacity = 0;
+            document.getElementById('hint-text').style.opacity = 0;
+            Tone.Transport.stop(); 
+            Tone.Transport.cancel();
+        }
+
+        // ===========================================
+        //        6个独立功能逻辑 (P5.js)
+        // ===========================================
+        function runSketch(id, container) {
+            
+            // 1. Fluid (流体)
+            if (id === 1) {
+                const s = (p) => {
+                    let particles = [];
+                    p.setup = () => { p.createCanvas(p.windowWidth, p.windowHeight); p.background(255); };
+                    p.draw = () => {
+                        p.background(255, 20); // 拖尾
+                        let vel = p5.Vector.sub(p.createVector(p.mouseX, p.mouseY), p.createVector(p.pmouseX, p.pmouseY)).mult(0.5);
+                        if (p.mouseIsPressed || vel.mag() > 1) {
+                            for(let i=0; i<5; i++) particles.push({ 
+                                pos: p.createVector(p.mouseX+p.random(-10,10), p.mouseY+p.random(-10,10)), 
+                                vel: p5.Vector.add(vel, p5.Vector.random2D().mult(2)), 
+                                life: 255 
+                            });
+                        }
+                        for(let i=particles.length-1; i>=0; i--) {
+                            let pt = particles[i]; pt.pos.add(pt.vel); pt.vel.mult(0.96); pt.life -= 3;
+                            // 极简黑墨水风格
+                            p.noStroke(); p.fill(0, pt.life); 
+                            p.circle(pt.pos.x, pt.pos.y, p.map(pt.life, 0, 255, 2, 15));
+                            if(pt.life < 0) particles.splice(i, 1);
+                        }
+                    };
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+
+            // 2. Elastic (弹性)
+            if (id === 2) {
+                const s = (p) => {
+                    let center;
+                    p.setup = () => { p.createCanvas(p.windowWidth, p.windowHeight); center = p.createVector(p.width/2, p.height/2); };
+                    p.draw = () => {
+                        p.background(255);
+                        let target = p.mouseIsPressed ? p.createVector(p.mouseX, p.mouseY) : p.createVector(p.width/2, p.height/2);
+                        let force = p5.Vector.sub(target, center); force.mult(0.1); center.add(force);
+                        
+                        p.noFill(); p.stroke(0, 50); p.strokeWeight(1);
+                        for(let i=0; i<12; i++) {
+                            let pos = p5.Vector.lerp(p.createVector(p.width/2, p.height/2), center, (i+1)/12);
+                            p.circle(pos.x, pos.y, 40 + i * 35);
+                        }
+                        p.stroke(0); p.line(p.width/2, p.height/2, center.x, center.y);
+                        p.fill(0); p.circle(center.x, center.y, 8);
+                    };
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+
+            // 3. Orbit (轨道)
+            if (id === 3) {
+                const s = (p) => {
+                    let planets = []; let dragStart = null;
+                    p.setup = () => { p.createCanvas(p.windowWidth, p.windowHeight); };
+                    p.mousePressed = () => { dragStart = p.createVector(p.mouseX, p.mouseY); };
+                    p.mouseReleased = () => {
+                        if(dragStart) {
+                            let vel = p5.Vector.sub(dragStart, p.createVector(p.mouseX, p.mouseY)).mult(0.05);
+                            planets.push({pos: dragStart.copy(), vel: vel}); dragStart = null;
+                        }
+                    };
+                    p.draw = () => {
+                        p.background(255, 80);
+                        p.fill(30); p.noStroke(); p.circle(p.width/2, p.height/2, 40); // 太阳
+                        if(p.mouseIsPressed && dragStart) { 
+                            p.stroke(200); p.line(dragStart.x, dragStart.y, p.mouseX, p.mouseY); 
+                        }
+                        let sun = p.createVector(p.width/2, p.height/2);
+                        for(let pl of planets) {
+                            let force = p5.Vector.sub(sun, pl.pos);
+                            let d = p.constrain(force.mag(), 5, 200);
+                            force.setMag(200 / (d*d)); pl.vel.add(force); pl.pos.add(pl.vel);
+                            p.fill(100); p.noStroke(); p.circle(pl.pos.x, pl.pos.y, 10);
+                        }
+                    };
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+
+            // 4. Pixels (像素)
+            if (id === 4) {
+                const s = (p) => {
+                    let pixels = []; const size = 25;
+                    p.setup = () => { 
+                        p.createCanvas(p.windowWidth, p.windowHeight); 
+                        let cols = p.ceil(p.width/size), rows = p.ceil(p.height/size);
+                        for(let i=0; i<cols; i++) for(let j=0; j<rows; j++) pixels.push({x:i*size, y:j*size, ox:i*size, oy:j*size, active:false, vx:0, vy:0});
+                    };
+                    p.draw = () => {
+                        p.background(255); p.noStroke();
+                        for(let px of pixels) {
+                            if(!px.active) {
+                                if(p.dist(p.mouseX, p.mouseY, px.x+size/2, px.y+size/2) < 40 && p.mouseIsPressed) {
+                                    px.active = true; px.vx = p.random(-4, 4); px.vy = p.random(-4, 4);
+                                }
+                                p.fill(245); p.rect(px.x, px.y, size-1, size-1);
+                            } else {
+                                px.x += px.vx; px.y += px.vy; px.vy += 0.5;
+                                p.fill(30); p.rect(px.x, px.y, size-1, size-1);
+                                if(px.y > p.height) { px.active = false; px.x = px.ox; px.y = px.oy; }
+                            }
+                        }
+                    };
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+
+            // 5. Swarm (群落 - 适配白色)
+            if (id === 5) {
+                const s = (p) => {
+                    let agents = [];
+                    p.setup = () => { p.createCanvas(p.windowWidth, p.windowHeight); for(let i=0; i<200; i++) agents.push(new Agent(p)); };
+                    p.draw = () => {
+                        p.background(255, 50); // 白色拖尾
+                        let target = p.createVector(p.mouseX, p.mouseY);
+                        for(let a of agents) {
+                            if(p.mouseIsPressed) a.seek(target); else a.wander();
+                            a.update(); a.show();
+                        }
+                    };
+                    class Agent {
+                        constructor(p) { this.p=p; this.pos=p.createVector(p.random(p.width), p.random(p.height)); this.vel=p5.Vector.random2D(); this.acc=p.createVector(); this.maxSpeed=6; }
+                        seek(t) { let f=p5.Vector.sub(t, this.pos); f.setMag(0.5); this.acc.add(f); }
+                        wander() { this.acc.add(p5.Vector.random2D().mult(0.2)); }
+                        update() { this.vel.add(this.acc); this.vel.limit(this.maxSpeed); this.pos.add(this.vel); this.acc.mult(0); }
+                        // 深色点
+                        show() { this.p.stroke(0); this.p.point(this.pos.x, this.pos.y); }
+                    }
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+
+            // 6. Bloom (生长 - 适配白色)
+            if (id === 6) {
+                const s = (p) => {
+                    let flowers = [];
+                    p.setup = () => { p.createCanvas(p.windowWidth, p.windowHeight); p.background(255); p.colorMode(p.HSB); };
+                    p.mousePressed = () => { flowers.push(new Flower(p, p.mouseX, p.mouseY)); };
+                    p.draw = () => {
+                        for(let f of flowers) f.grow();
+                    };
+                    class Flower {
+                        constructor(p, x, y) { this.p=p; this.x=x; this.y=y; this.size=0; this.max=p.random(50, 150); this.hue=p.random(360); }
+                        grow() {
+                            if(this.size < this.max) {
+                                this.size += 1;
+                                this.p.noStroke(); 
+                                // 调整透明度，在白底上更清晰
+                                this.p.fill(this.hue, 60, 80, 0.1);
+                                this.p.circle(this.x, this.y, this.size);
+                            }
+                        }
+                    }
+                    p.windowResized = () => p.resizeCanvas(p.windowWidth, p.windowHeight);
+                };
+                currentP5 = new p5(s, container);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>静屿 StillIsle</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg': '#F9F7F2', 'ink': '#2C2C2C', 'sub': '#666666', 
+                        'accent': '#C5A059', 'paper': '#F0EFE9'
+                    },
+                    fontFamily: {
+                        'serif': ['"Noto Serif SC"', '"Playfair Display"', 'serif'],
+                        'sans': ['"Lato"', 'sans-serif'],
+                    },
+                    boxShadow: { 'deck': '0 25px 50px -12px rgba(0,0,0,0.4)', 'soft': '0 10px 30px rgba(0,0,0,0.1)' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background-color: #F9F7F2; color: #2C2C2C; overflow: hidden; user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 导航样式 */
+        .nav-text { position: relative; display: inline-block; }
+        .nav-text::after { content: ''; position: absolute; width: 0; height: 1px; bottom: -2px; left: 0; background: currentColor; transition: width 0.3s; }
+        .nav-text:hover::after { width: 100%; }
+
+        /* Oracle 模块样式 - 纯CSS动画，无鼠标跟随 */
+        .deck-stack { position: relative; }
+        .deck-stack::before, .deck-stack::after { content: ''; position: absolute; width: 100%; height: 100%; background: #fff; border: 1px solid #ddd; border-radius: 12px; pointer-events: none; }
+        .deck-stack::before { top: 3px; left: 2px; z-index: -1; transform: rotate(1deg); }
+        .deck-stack::after { top: 6px; left: 4px; z-index: -2; transform: rotate(-1deg); box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+        .card-texture { background-color: #fff; background-image: radial-gradient(#ddd 1px, transparent 1px); background-size: 15px 15px; }
+        @keyframes shuffle-move { 0%, 100% { transform: translateY(0); } 25% { transform: translateY(-10px) rotate(-2deg); } 75% { transform: translateY(-5px) rotate(2deg); } }
+        .animate-shuffle { animation: shuffle-move 0.2s infinite; }
+        
+        /* Explore Grid */
+        .explore-item { transition: all 0.3s ease; border-left: 2px solid transparent; padding-left: 0; }
+        .explore-item:hover { transform: translateX(10px); border-left-color: #C5A059; padding-left: 15px; }
+        
+        /* --- 小夜灯修复样式 (Scope Isolation) --- */
+        #module-nightlight {
+            /* 强制定位上下文 */
+            isolation: isolate; 
+        }
+        #module-nightlight .character-container {
+            position: absolute !important; /* 确保居中 */
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 200px; height: 240px;
+            z-index: 10;
+            display: flex; flex-direction: column; align-items: center;
+            filter: drop-shadow(0 0 40px rgba(255,255,255,0.6));
+            animation: float 5s ease-in-out infinite, bob 2s ease-in-out infinite alternate;
+            cursor: pointer;
+        }
+        #module-nightlight .character-body {
+            position: relative; /* 关键：子元素绝对定位的锚点 */
+            width: 150px; height: 170px;
+            background-color: #ffffff !important;
+            border-radius: 75px 75px 65px 65%;
+            box-shadow: inset 0 0 30px rgba(230,230,255,1);
+            animation: breathe 3s ease-in-out infinite, jelly 4s ease-in-out infinite;
+            display: flex; justify-content: center;
+        }
+        /* 强制绝对定位，防止解体 */
+        #module-nightlight .eyes { position: absolute; top: 42%; width: 54px; display: flex; justify-content: space-between; }
+        #module-nightlight .eye { width: 14px; height: 14px; background-color: #222; border-radius: 50%; animation: blink 3.5s infinite; }
+        #module-nightlight .blush { position: absolute; top: 54%; width: 18px; height: 10px; background-color: #ffaaaa; border-radius: 50%; filter: blur(2px); opacity: 0.8; }
+        #module-nightlight .blush.left { left: 28px; }
+        #module-nightlight .blush.right { right: 28px; }
+        #module-nightlight .arm { position: absolute; top: 62%; width: 30px; height: 44px; background-color: #ffffff !important; border-radius: 15px; }
+        #module-nightlight .arm.left { left: -12px; transform-origin: top center; transform: rotate(20deg); animation: waveLeft 3s ease-in-out infinite; }
+        #module-nightlight .arm.right { right: -12px; transform-origin: top center; transform: rotate(-20deg); animation: waveRight 3s ease-in-out infinite; }
+        #module-nightlight .feet { display: flex; justify-content: space-between; width: 90px; margin-top: -16px; position: relative; z-index: -1; }
+        #module-nightlight .foot { width: 36px; height: 32px; background-color: #ffffff !important; border-radius: 0 0 18px 18px; animation: kick 1.5s ease-in-out infinite alternate; }
+        #module-nightlight .foot:last-child { animation-delay: 0.75s; }
+        
+        /* 动画定义 */
+        @keyframes float { 0%, 100% { transform: translate(-50%, -50%) translateY(0); } 50% { transform: translate(-50%, -50%) translateY(-20px); } }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        @keyframes blink { 0%, 96%, 100% { height: 14px; } 98% { height: 2px; } }
+        @keyframes waveLeft { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(35deg); } }
+        @keyframes waveRight { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(-35deg); } }
+        @keyframes jelly { 0%, 100% { border-radius: 75px 75px 65px 65%; } 25% { border-radius: 70px 80px 60px 70%; } 50% { border-radius: 80px 70px 70px 60%; } 75% { border-radius: 65px 75px 75px 65%; } }
+        @keyframes bob { 0%, 100% { margin-top: 0; } 50% { margin-top: 5px; } }
+        @keyframes kick { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(5deg); } }
+
+        /* 滑块 */
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.2); outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        /* 游戏网格 */
+        .game-grid-item { border-right: 1px solid rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .game-grid-item:nth-child(3n) { border-right: none; }
+    </style>
+</head>
+
+<body class="h-screen w-screen flex flex-col" x-data="mainApp()" x-init="init()" @keydown.window="handleKey($event)">
+
+    <div class="absolute inset-0 -z-20 transition-colors duration-1000 ease-in-out" :style="bgStyle"></div>
+    <canvas id="particle-canvas" class="absolute inset-0 -z-10 opacity-30 pointer-events-none"></canvas>
+
+    <nav class="fixed top-0 w-full h-24 px-8 md:px-12 flex justify-between items-end pb-6 z-50 transition-all duration-500"
+         :class="activeModule ? 'bg-white/90 backdrop-blur-md border-b border-black/5' : ''">
+        
+        <div class="cursor-pointer group flex items-center gap-4" @click="goHome()">
+            <div x-show="activeModule" class="text-xs uppercase tracking-widest text-sub group-hover:text-ink transition flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> <span>返回</span>
+            </div>
+            <h1 class="text-2xl font-serif font-bold tracking-wide text-ink" x-show="!activeModule || activeModule === 'journal'">静屿</h1>
+        </div>
+        
+        <div class="flex gap-10 text-xs font-sans tracking-widest uppercase text-sub" x-show="!activeModule">
+            <button @click="tab='today'" :class="tab==='today'?'text-ink font-bold border-b border-ink pb-1':'hover:text-ink'">当下</button>
+            <button @click="tab='explore'" :class="tab==='explore'?'text-ink font-bold border-b border-ink pb-1':'hover:text-ink'">探索</button>
+            <button @click="tab='chat'" :class="tab==='chat'?'text-ink font-bold border-b border-ink pb-1':'hover:text-ink'">灵犀</button>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-28 px-8 md:px-12 overflow-hidden relative">
+
+        <div x-show="tab === 'today' && !activeModule" class="max-w-4xl mx-auto fade-in h-full overflow-y-auto no-scrollbar pb-24">
+            <header class="mb-16 mt-8 text-center">
+                <p class="text-xs font-sans text-sub tracking-widest uppercase mb-6" x-text="dateStr"></p>
+                <h2 class="text-2xl md:text-3xl font-serif text-ink font-light leading-relaxed tracking-wide max-w-2xl mx-auto line-clamp-2">
+                    “<span x-text="dailyQuote.cn"></span>”
+                </h2>
+                <p class="text-xs font-serif text-sub italic mt-4">— <span x-text="dailyQuote.en"></span></p>
+            </header>
+            
+            <div class="border-t border-black/10 pt-12 grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div class="group cursor-pointer" @click="openModule('meditation')">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-xs font-sans text-accent tracking-widest uppercase">Focus & Breathe</span>
+                        <span class="text-xl text-ink group-hover:translate-x-2 transition">→</span>
+                    </div>
+                    <h3 class="text-3xl font-serif text-ink mb-3 group-hover:opacity-70 transition nav-text font-bold">在此 · 冥想</h3>
+                    <p class="text-base text-sub font-light leading-relaxed">给自己十分钟。<br>声景 · 呼吸练习 · 正念引导</p>
+                </div>
+                <div class="group cursor-pointer" @click="openModule('journal')">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-xs font-sans text-sub tracking-widest uppercase">Daily Routine</span>
+                        <span class="text-xl text-ink group-hover:translate-x-2 transition">→</span>
+                    </div>
+                    <h3 class="text-3xl font-serif text-ink mb-3 group-hover:opacity-70 transition nav-text font-bold">觉察日记</h3>
+                    <p class="text-base text-sub font-light leading-relaxed">观照自我。<br>记录情绪与念头，建立内心秩序。</p>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="tab === 'explore' && !activeModule" class="max-w-6xl mx-auto fade-in h-full overflow-y-auto no-scrollbar pb-24">
+            
+            <div class="mb-16 mt-8">
+                <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Inner Self / 本我探索</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div class="cursor-pointer group explore-item md:text-left" @click="openModule('mbti')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">MBTI 人格</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">深度解析性格底色。<br>基于 NERIS 模型。</p>
+                    </div>
+                    <div class="cursor-pointer group explore-item md:text-left" @click="openModule('strengths')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">Spark 优势</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">发现核心驱动力。<br>34 项才干主题分析。</p>
+                    </div>
+                    <div class="cursor-pointer group explore-item md:text-left" @click="openModule('scl90')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">SCL-90</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">心理健康状态自查。<br>90 项专业临床评估。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div>
+                    <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Wisdom / 灵启</h4>
+                    <div class="cursor-pointer group explore-item" @click="openModule('oracle')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">神谕与答案</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">读心卡牌 · 答案之书。<br>连接直觉，寻找当下的指引。</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Art / 交互 & 疗愈</h4>
+                    <div class="space-y-8">
+                        <div class="cursor-pointer group explore-item" @click="openModule('games')">
+                            <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">解压花园</h3>
+                            <p class="text-sm text-sub font-light leading-relaxed">Decompressia.<br>6款极简交互艺术，指尖的解压魔法。</p>
+                        </div>
+                        <div class="cursor-pointer group explore-item" @click="openModule('nightlight')">
+                            <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">小夜灯</h3>
+                            <p class="text-sm text-sub font-light leading-relaxed">Night Healing Light.<br>极致色彩疗愈，点亮内心的角落。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="tab === 'chat' && !activeModule" class="max-w-2xl mx-auto fade-in h-full flex flex-col pb-10" x-data="chatApp()">
+            <div class="flex-grow overflow-y-auto no-scrollbar pt-10 pb-10 space-y-8" id="chat-container">
+                <template x-for="msg in messages">
+                    <div class="flex flex-col" :class="msg.role === 'ai' ? 'items-start' : 'items-end'">
+                        <span class="text-[10px] font-sans tracking-widest uppercase mb-1 text-sub" x-text="msg.role === 'ai' ? 'AI Partner' : 'You'"></span>
+                        <div class="p-4 rounded-2xl text-sm font-serif leading-relaxed max-w-[85%]"
+                             :class="msg.role === 'ai' ? 'bg-white/60 text-ink' : 'bg-ink text-white'">
+                            <span x-text="msg.text"></span>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="typing" class="text-xs text-sub italic animate-pulse pl-2">对方正在输入...</div>
+            </div>
+            <div class="border-t border-black/10 pt-4">
+                <div class="flex gap-4 items-center bg-white/40 rounded-full px-6 py-2">
+                    <input type="text" x-model="input" @keydown.enter="send()" placeholder="在此倾诉您的心声..." 
+                           class="flex-grow bg-transparent text-base font-serif text-ink outline-none placeholder:text-sub/40 h-10">
+                    <button @click="send()" class="text-xs font-sans tracking-widest uppercase text-ink hover:text-accent transition"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'meditation'" class="absolute inset-0 z-40 flex fade-in font-sans" id="module-beinghere" x-data="beingHereApp()">
+            <div class="w-64 h-full border-r border-black/5 flex flex-col pt-32 pb-10 pl-10 pr-6 z-20 bg-white/40 backdrop-blur-xl">
+                <div class="mb-16"><div class="text-3xl font-serif font-bold text-ink tracking-wide">在此</div><div class="text-[10px] uppercase tracking-widest text-sub mt-2 opacity-70">Focus & Breathe</div></div>
+                <div class="flex flex-col gap-6">
+                    <div class="text-[10px] uppercase tracking-widest text-black/40 font-bold mb-2">模式</div>
+                    <template x-for="m in modes"><button @click="switchMode(m.id)" :class="currentMode===m.id ? 'text-ink font-bold pl-3 border-l-2 border-ink' : 'text-sub hover:text-ink'" class="text-left text-sm tracking-widest uppercase transition-all h-8 flex items-center"><span x-text="m.label"></span></button></template>
+                </div>
+            </div>
+            <div class="flex-1 relative flex flex-col items-center justify-center h-full">
+                <div x-show="currentMode === 'focus' || currentMode === 'breathe'" class="text-center relative z-10 w-full h-full flex flex-col items-center justify-center">
+                    <div class="w-[380px] h-[380px] rounded-full flex flex-col items-center justify-center bg-white/10 backdrop-blur-sm cursor-pointer transition-all duration-700 hover:bg-white/20" :class="isRunning ? 'breathe-active' : 'breathe-circle'" :style="visualStyle" @click="toggle()">
+                        <div x-show="currentMode === 'focus'" class="text-8xl font-serif text-ink font-light tabular-nums tracking-tighter" x-text="timerDisplay"></div>
+                        <div x-show="currentMode === 'breathe'" class="text-4xl font-serif text-ink font-light tracking-widest uppercase" x-text="statusText === '准备' ? breathName : statusText"></div>
+                        <div class="text-xs uppercase tracking-[0.4em] text-ink/60 mt-6 font-bold" x-text="currentMode === 'focus' ? statusText : ''"></div>
+                    </div>
+                    <div x-show="isAlarmRinging" class="absolute bottom-32 w-full text-center pulse-text"><p class="text-xs font-sans tracking-widest uppercase text-accent">按任意键停止 / Press Any Key to Stop</p></div>
+                    <div class="mt-16 flex items-center gap-12 text-xs tracking-[0.2em] font-bold text-ink uppercase">
+                        <button @click="toggle()" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1" x-text="isRunning ? '暂停' : '开始'"></button>
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button @click="open = !open" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1 flex items-center gap-2">设置 <i class="fa-solid fa-sliders"></i></button>
+                            <div x-show="open" class="absolute bottom-12 left-1/2 -translate-x-1/2 w-64 bg-white shadow-xl rounded-xl p-6 z-50 text-left normal-case tracking-normal">
+                                <div x-show="currentMode === 'focus'"><div class="text-[10px] text-sub uppercase mb-2">时长 (分钟)</div><div class="grid grid-cols-3 gap-2 mb-2"><button @click="setDuration(25)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs">25</button><button @click="setDuration(45)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs">45</button><button @click="setDuration(0)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs text-xl">∞</button></div><div class="flex gap-2 mb-4"><input type="number" placeholder="自定义" class="w-full p-2 border rounded text-xs outline-none" @change="setDuration($event.target.value)"></div><div class="text-[10px] text-sub uppercase mb-2">结束铃声</div><div class="flex flex-col gap-2"><button @click="setAlarm('echo'); playSample('Nature-audio/Echo.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='echo'?'bg-gray-100 font-bold':''">回声谷</button><button @click="setAlarm('campfire'); playSample('Nature-audio/Campfire.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='campfire'?'bg-gray-100 font-bold':''">营地篝火</button><button @click="setAlarm('seabreeze'); playSample('Nature-audio/Seabreeze.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='seabreeze'?'bg-gray-100 font-bold':''">海浪</button></div></div>
+                                <div x-show="currentMode === 'breathe'"><div class="text-[10px] text-sub uppercase mb-2">模式</div><div class="flex flex-col gap-2"><button @click="setBreath('4-7-8', '舒缓')" class="text-left p-2 rounded hover:bg-gray-50 text-xs flex justify-between" :class="breathPattern==='4-7-8'?'font-bold':''"><span>舒缓 (4-7-8)</span></button><button @click="setBreath('5-5-5', '平衡')" class="text-left p-2 rounded hover:bg-gray-50 text-xs flex justify-between" :class="breathPattern==='5-5-5'?'font-bold':''"><span>平衡 (箱式)</span></button></div></div>
+                            </div>
+                        </div>
+                        <button @click="reset()" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1">重置</button>
+                    </div>
+                </div>
+                <div x-show="currentMode === 'sound' || currentMode === 'mind'" class="w-full h-full absolute inset-0 overflow-y-auto no-scrollbar p-16 pt-24">
+                    <h2 class="text-3xl font-serif text-ink mb-10 ml-2" x-text="currentMode === 'sound' ? '声景' : '正念引导'"></h2>
+                    <p x-show="currentMode === 'mind'" class="ml-2 mb-4 text-xs text-sub italic">引导音频可与声景叠加播放。</p>
+                    <template x-for="(section, title) in (currentMode === 'sound' ? soundCollections : mindCollections)">
+                        <div class="mb-12"><h3 class="text-sm font-sans tracking-widest uppercase text-sub mb-6 border-b border-black/10 pb-2" x-text="title"></h3><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"><template x-for="track in section"><div class="cursor-pointer group" @click="playSound(track, currentMode === 'sound' ? 'bg' : 'voice')"><div class="aspect-square bg-gray-200 mb-3 overflow-hidden relative rounded-lg shadow-sm border border-black/5"><img :src="track.cover" class="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100" onerror="this.style.display='none'; this.parentNode.style.backgroundColor='#cccccc'"><div class="absolute inset-0 bg-black/10 flex items-center justify-center transition-opacity duration-300" :class="(currentMode === 'sound' ? (currentBg === track.file && isBgPlaying) : (currentVoice === track.file && isVoicePlaying)) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"><i class="fa-solid text-white text-xl" :class="(currentMode === 'sound' ? (currentBg === track.file && isBgPlaying) : (currentVoice === track.file && isVoicePlaying)) ? 'fa-pause' : 'fa-play'"></i></div></div><div class="text-sm font-serif text-ink group-hover:text-accent truncate text-center" x-text="track.title"></div></div></template></div></div>
+                    </template>
+                </div>
+            </div>
+            <audio id="audio-bg" loop></audio><audio id="audio-voice"></audio><audio id="alarm-audio"></audio>
+        </div>
+
+        <div x-show="activeModule === 'journal'" class="absolute inset-0 z-40 bg-[#F9F8F4] overflow-y-auto no-scrollbar fade-in" id="module-journal" x-data="journalApp()">
+            <div class="max-w-3xl mx-auto px-8 pt-32 pb-20 min-h-full flex flex-col">
+                <header class="text-center mb-16 fade-in"><h1 class="text-5xl md:text-6xl font-journal-en font-bold text-ink mb-6 tracking-tight">Know Your Self</h1><nav class="flex justify-center gap-12 font-journal-en text-xs uppercase tracking-[0.2em] text-sub"><span @click="view='write'" class="cursor-pointer pb-1 transition-all border-b border-transparent hover:border-ink" :class="view==='write'?'text-ink font-bold border-ink':''">深读 / 今日书写</span><span @click="view='history'" class="cursor-pointer pb-1 transition-all border-b border-transparent hover:border-ink" :class="view==='history'?'text-ink font-bold border-ink':''">过往 / 历史篇章</span></nav></header>
+                <div class="text-center mb-16 px-4 py-10 border-y border-[#E0E0E0]"><div class="text-lg font-serif text-ink mb-2" x-text="quote.cn"></div><div class="text-sm font-journal-en italic text-sub" x-text="quote.en"></div></div>
+                <div x-show="view === 'write'" class="fade-in">
+                    <div class="text-center mb-12 text-xs font-journal-en tracking-[0.2em] text-[#999]" x-text="dateDisplay"></div>
+                    <div class="mb-16"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Achievement</span><div class="text-2xl font-serif text-ink mb-6">小确幸</div><textarea x-model="entry.achievement" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[100px]" placeholder="记录今日的微小成就..."></textarea></div>
+                    <div class="mb-16"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Gratitude</span><div class="text-2xl font-serif text-ink mb-6">感恩时刻</div><textarea x-model="entry.gratitude" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[100px]" placeholder="值得感谢的人或事..."></textarea></div>
+                    <div class="mb-20"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Mood Check-in</span><div class="text-2xl font-serif text-ink mb-6">心境</div><div class="flex gap-8 font-journal-en italic text-[#888] mb-8"><template x-for="m in ['Sunny','Cloudy','Rainy','Storm','Calm']"><span @click="entry.moodVal = m" class="cursor-pointer hover:text-ink relative mood-btn transition" :class="entry.moodVal === m ? 'text-ink font-bold selected scale-110' : ''" x-text="m"></span></template></div><textarea x-model="entry.moodText" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[80px]" placeholder="此刻的念头..."></textarea></div>
+                    <button @click="save()" class="block mx-auto px-16 py-4 border border-ink text-ink font-journal-en text-xs uppercase tracking-widest hover:bg-ink hover:text-white transition-all duration-300">保存至内心</button>
+                </div>
+                <div x-show="view === 'history'" class="fade-in">
+                    <template x-for="item in history"><div class="py-12 border-b border-[#E0E0E0] last:border-0 flex flex-col items-start"><div class="font-journal-en text-xs uppercase tracking-widest text-[#888] mb-4">HEAL / <span x-text="item.dateStr"></span> / <span x-text="item.moodVal"></span></div><div class="font-journal-en text-4xl text-ink mb-6 leading-tight">Inner Self</div><div class="text-lg font-serif text-[#555] font-light mb-8 line-clamp-3 leading-relaxed" x-text="getPreview(item)"></div><button @click="showDetail(item)" class="font-journal-en text-xs uppercase underline underline-offset-4 text-ink hover:text-[#888] transition">阅读全文</button></div></template>
+                    <div x-show="history.length === 0" class="text-center py-20 font-journal-en italic text-[#888]">暂无记录，开始书写第一篇章。</div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'oracle'" class="absolute inset-0 z-40 bg-[#F9F7F2] overflow-y-auto no-scrollbar fade-in" id="module-oracle" x-data="oracleApp()">
+            <header class="fixed top-0 w-full h-16 flex items-center justify-center px-6 z-[60] mt-24 pointer-events-none">
+                <nav class="flex gap-8 pointer-events-auto bg-white/80 backdrop-blur-sm px-6 py-2 rounded-full shadow-sm border border-black/5">
+                    <button @click="activeTab = 'cards'" class="text-[10px] font-sans tracking-widest uppercase transition relative group" :class="activeTab === 'cards' ? 'text-ink font-bold' : 'text-sub hover:text-ink'">
+                        <span>读心卡牌</span>
+                        <div class="absolute -bottom-1 left-0 w-full h-0.5 bg-accent transition-transform origin-left" :class="activeTab === 'cards' ? 'scale-x-100' : 'scale-x-0'"></div>
+                    </button>
+                    <button @click="activeTab = 'book'" class="text-[10px] font-sans tracking-widest uppercase transition relative group" :class="activeTab === 'book' ? 'text-ink font-bold' : 'text-sub hover:text-ink'">
+                        <span>答案之书</span>
+                        <div class="absolute -bottom-1 left-0 w-full h-0.5 bg-accent transition-transform origin-left" :class="activeTab === 'book' ? 'scale-x-100' : 'scale-x-0'"></div>
+                    </button>
+                </nav>
+            </header>
+            <main class="w-full h-full flex flex-col items-center justify-center pt-32 pb-10">
+                <div x-show="activeTab === 'cards'" class="w-full h-full flex items-center justify-center fade-in">
+                    <div x-show="!cardState.selected" class="flex flex-col items-center cursor-pointer group scale-90 md:scale-100 transition-transform" @click="drawRandomCard()">
+                        <div class="text-center mb-8"><h2 class="text-3xl font-serif italic text-ink mb-1">The Oracle</h2><p class="text-[10px] font-sans tracking-widest text-sub uppercase">Click Deck to Draw</p></div>
+                        <div class="relative w-64 h-96 deck-stack transition-all duration-200" :class="cardState.isShuffling ? 'animate-shuffle' : ''"><div class="w-full h-full rounded-xl bg-white border border-gray-200 shadow-deck flex items-center justify-center card-texture relative overflow-hidden"><div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="text-4xl text-accent/60 font-serif">♦</span></div></div></div>
+                    </div>
+                    <div x-show="cardState.selected" class="absolute inset-0 z-50 bg-[#F9F7F2]/95 backdrop-blur flex flex-col items-center justify-center p-6 fade-in">
+                        <div class="relative w-[300px] h-[450px] shadow-2xl rounded-xl overflow-hidden border-8 border-white"><img :src="currentCard.image" class="w-full h-full object-cover" onerror="this.src='https://source.unsplash.com/random/600x900/?abstract,nature&sig='+Math.random()"></div>
+                        <div class="mt-8 text-center"><p class="text-sm font-serif text-ink/80 italic mb-6">"What message does this image hold for you?"</p><button @click="resetCard()" class="px-8 py-2 text-[10px] font-sans tracking-widest text-ink border border-ink hover:bg-ink hover:text-white transition uppercase rounded-sm">Close</button></div>
+                    </div>
+                </div>
+                <div x-show="activeTab === 'book'" class="w-full h-full flex items-center justify-center fade-in">
+                    <div class="relative w-[340px] h-[500px]">
+                        <div class="absolute inset-0 bg-white rounded-lg shadow-soft border border-gray-100 flex flex-col items-center justify-center p-10 text-center z-0 transition-opacity duration-1000" :class="bookState.isOpen ? 'opacity-100 z-20' : 'opacity-0 z-0'">
+                            <span class="text-6xl text-accent/20 block mb-6 font-serif">“</span><div class="overflow-y-auto max-h-[300px] no-scrollbar"><p class="text-[10px] font-sans text-sub uppercase tracking-wider mb-6 opacity-60" x-text="currentAnswer.en"></p><h3 class="text-xl font-serif text-ink font-bold leading-loose" x-html="currentAnswer.cn"></h3></div><button @click="resetBook()" class="mt-8 text-[10px] text-sub tracking-widest uppercase border-b border-transparent hover:border-sub pb-1 hover:text-ink transition">Ask Again</button>
+                        </div>
+                        <div class="absolute inset-0 bg-[#F2F0E9] rounded-lg shadow-deck z-10 flex flex-col items-center justify-center transition-all duration-1000 border-l-4 border-gray-300 cursor-pointer" :class="bookState.isOpen ? 'opacity-0 pointer-events-none transform scale-110' : 'opacity-100'" @mousedown="startPress()" @touchstart.prevent="startPress()" @mouseup="endPress()" @touchend="endPress()" @mouseleave="endPress()">
+                            <div class="border border-accent/20 w-[88%] h-[92%] flex flex-col items-center justify-center p-4"><h3 class="text-2xl font-serif font-bold text-ink tracking-widest mb-2">THE BOOK</h3><span class="text-[9px] font-sans tracking-[0.4em] text-sub uppercase">Of Wisdom</span><div class="mt-24 mb-24 w-24 flex flex-col items-center"><p class="text-[10px] font-sans tracking-widest text-ink uppercase mb-2" :class="bookState.isPressing ? 'text-accent' : 'text-ink'">Press & Hold</p><div class="w-full h-[2px] bg-gray-200 relative overflow-hidden"><div class="absolute top-0 left-0 h-full bg-accent transition-all ease-linear" :style="bookState.isPressing ? 'width: 100%; transition-duration: 3000ms;' : 'width: 0%; transition-duration: 200ms;'"></div></div></div><p class="absolute bottom-10 text-[9px] text-sub/30 tracking-widest uppercase">3 Seconds</p></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div x-show="activeModule === 'games'" class="absolute inset-0 z-50 bg-[#F9F7F2] flex flex-col items-center justify-center fade-in" x-data="gamesApp()">
+            <button @click="goHome()" class="absolute top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-sub hover:text-ink">关闭</button>
+            <div x-show="!activeGame" class="grid grid-cols-2 md:grid-cols-3 w-full max-w-5xl h-[600px]">
+                <template x-for="(g, i) in games">
+                    <div @click="launch(i)" class="game-grid-item flex flex-col items-center justify-center cursor-pointer hover:bg-white/50 transition duration-300 group">
+                        <span class="text-4xl text-ink/80 mb-6 font-light group-hover:scale-110 transition" x-text="g.icon"></span>
+                        <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-sub group-hover:text-ink" x-text="g.name"></span>
+                        <span class="text-[8px] uppercase tracking-widest text-sub/40 mt-2 opacity-0 group-hover:opacity-100 transition" x-text="g.hint"></span>
+                    </div>
+                </template>
+            </div>
+            <div id="p5-container" class="absolute inset-0 z-0" x-show="activeGame"></div>
+            <div x-show="activeGame" class="absolute bottom-12 text-[10px] text-ink/40 tracking-[0.4em] uppercase pointer-events-none" x-text="currentHint"></div>
+        </div>
+
+        <div x-show="activeModule === 'nightlight'" class="absolute inset-0 z-50 transition-colors duration-500" :style="`background-color: hsl(${hue}, ${sat}%, ${light}%)`" x-data="nightLightApp()" id="module-nightlight">
+            <button @click="goHome()" class="fixed top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-white/80 hover:text-white pointer-events-auto">关闭</button>
+            
+            <div class="character-container" @click="interact()">
+                <div class="character-body">
+                    <div class="eyes"><div class="eye"></div><div class="eye"></div></div>
+                    <div class="blush left"></div><div class="blush right"></div>
+                    <div class="arm left"></div><div class="arm right"></div>
+                </div>
+                <div class="feet"><div class="foot"></div><div class="foot"></div></div>
+            </div>
+
+            <div class="fixed bottom-10 right-10 z-20 flex flex-col items-end gap-4 pointer-events-auto">
+                <button @click="showControls = !showControls" class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/50 hover:scale-110 transition shadow-lg">
+                    <i class="fa-solid fa-sliders text-white"></i>
+                </button>
+                <div x-show="showControls" class="bg-black/80 backdrop-blur-xl p-8 rounded-2xl w-80 text-white shadow-2xl origin-bottom-right transition mb-4" x-transition>
+                    <div class="text-lg font-bold mb-6 border-b border-white/10 pb-2">氛围调节</div>
+                    <div class="space-y-6">
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>HUE / 色相</span><span x-text="hue"></span></div><input type="range" min="0" max="360" x-model="hue" class="w-full h-3 rounded-full appearance-none cursor-pointer" style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"></div>
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>SAT / 浓度</span><span x-text="sat+'%'"></span></div><input type="range" min="0" max="100" x-model="sat" class="w-full h-3 rounded-full appearance-none cursor-pointer bg-white/20"></div>
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>INT / 亮度</span><span x-text="bri+'%'"></span></div><input type="range" min="0" max="100" x-model="bri" class="w-full h-3 rounded-full appearance-none cursor-pointer bg-white/20"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="['mbti', 'strengths', 'scl90'].includes(activeModule)" class="absolute inset-0 z-40 bg-[#F9F7F2] overflow-y-auto no-scrollbar fade-in flex flex-col items-center justify-center">
+             <button @click="goHome()" class="fixed top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-sub hover:text-ink">返回</button>
+             <div class="text-center"><h2 class="text-3xl font-serif">Assessment</h2><p class="text-xs mt-2">Coming Soon</p></div>
+        </div>
+
+    </main>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSysSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'tick') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'open') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 1.5);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+                osc.start(); osc.stop(audioCtx.currentTime + 2);
+            }
+        }
+
+        function mainApp() {
+            return {
+                tab: 'today', activeModule: null, dateStr: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+                dailyQuote: { cn: "生活如一杯咖啡，先苦后甜。", en: "Life is like coffee, bitter then sweet." },
+                bgStyle: 'background-color: #F9F7F2',
+                init() { this.initParticles(); },
+                openModule(name) { this.activeModule = name; if(name==='meditation') setTimeout(()=>window.dispatchEvent(new Event('bh-init')),50); if(name==='journal') setTimeout(()=>window.dispatchEvent(new Event('journal-init')),50); },
+                goHome() { this.activeModule = null; if(window.currentP5) { window.currentP5.remove(); window.currentP5=null; } },
+                handleKey(e) { window.dispatchEvent(new CustomEvent('global-keydown', {detail: e.code})); },
+                initParticles() { const canvas = document.getElementById('particle-canvas'); const ctx = canvas.getContext('2d'); let w, h, particles = []; const resize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }; window.addEventListener('resize', resize); resize(); for(let i=0; i<40; i++) particles.push({x:Math.random()*w, y:Math.random()*h, v:Math.random()*0.5, r:Math.random()*1.5}); function animate() { ctx.clearRect(0,0,w,h); ctx.fillStyle = '#2C2C2C'; particles.forEach(p => { p.y -= p.v; if(p.y < 0) p.y = h; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill(); }); requestAnimationFrame(animate); } animate(); }
+            }
+        }
+
+        // --- BeingHere App ---
+        function beingHereApp() {
+            return {
+                currentMode: 'focus', currentTheme: { s:'#E6EAE3', e:'#8FA691', name:'Bamboo', name_cn:'竹' },
+                isRunning: false, timer: 25 * 60, initialDuration: 25 * 60, statusText: '准备', visualStyle: '', 
+                currentBg: null, currentVoice: null, isBgPlaying: false, isVoicePlaying: false,
+                breathPattern: '4-7-8', breathName: '舒缓', alarmSound: 'echo', isInfinite: false, isAlarmRinging: false,
+                modes: [{ id: 'focus', label: '专注' }, { id: 'breathe', label: '呼吸' }, { id: 'sound', label: '声景' }, { id: 'mind', label: '引导' }],
+                soundCollections: {
+                    '自然': [ { title: "营地篝火", file: "Nature-audio/Campfire.MP3", cover: "Nature-audio/images/Cinematic_hyperdetailed_photorealistic_2k.jpeg" }, { title: "海浪", file: "Nature-audio/Seabreeze.MP3", cover: "Nature-audio/images/Waves.jpeg" }, { title: "踏雪寻梅", file: "Nature-audio/Blizzard.MP3", cover: "Nature-audio/images/A_cinematic_wideangle_2k_202601131719.jpeg" }, { title: "竹林雨声", file: "Nature-audio/Bamboo.MP3", cover: "Nature-audio/images/A_cinematic_shot_2k_202601131720.jpeg" }, { title: "鲸语", file: "Nature-audio/Leviathan.MP3", cover: "Nature-audio/images/Whale.jpeg" }, { title: "瀑布", file: "Nature-audio/Cascade.MP3", cover: "Nature-audio/images/A_cinematic_slowmotion_2k_202601131719.jpeg" }, { title: "沙丘", file: "Nature-audio/Dunes.MP3", cover: "Nature-audio/images/Desert.jpeg" }, { title: "回声谷", file: "Nature-audio/Echo.MP3", cover: "Nature-audio/images/A_cinematic_dolly_2k_202601131721.jpeg" }, { title: "碎石路", file: "Nature-audio/Gravel.MP3", cover: "Nature-audio/images/A_cinematic_tracking_2k_202601131721.jpeg" }, { title: "溪流", file: "Nature-audio/Brook.MP3", cover: "Nature-audio/images/A_cinematic_macro_2k_202601131721.jpeg" } ],
+                    '禅意': [ { title: "高山流水", file: "East-audio/Mountain Streamflow.mp3", cover: "East-audio/images/Subtle_scurve_suggesting_2k_202601131521.jpeg" }, { title: "夏日微风", file: "East-audio/Summer Breeze.mp3", cover: "East-audio/images/A_few_delicate_2k_202601131521.jpeg" }, { title: "藤蔓呼吸", file: "East-audio/Breathing Vine.mp3", cover: "East-audio/images/Single_vine_line_2k_202601131521.jpeg" }, { title: "漫漫长路", file: "East-audio/Gradual Journey.mp3", cover: "East-audio/images/Faint_path_fading_2k_202601131521.jpeg" }, { title: "月夜", file: "East-audio/Lunar Night.mp3", cover: "East-audio/images/A_single_moon_2k_202601131521.jpeg" }, { title: "炉火梦境", file: "East-audio/Hearthfire Dream.mp3", cover: "East-audio/images/Gentle_fire_glow_2k_202601131521.jpeg" }, { title: "水墨", file: "East-audio/Ink-Wash.mp3", cover: "East-audio/images/Black_ink_bleeding_2k_202601131521.jpeg" }, { title: "晨曦脉动", file: "East-audio/Dawn Pulse.mp3", cover: "East-audio/images/Soft_gradient_from_2k_202601131521.jpeg" }, { title: "虚空", file: "East-audio/Void.mp3", cover: "East-audio/images/Nearly_blank_canvas_2k_202601131521.jpeg" }, { title: "清白", file: "East-audio/Pale .mp3", cover: "https://images.unsplash.com/photo-1516475429286-465d815a0df4?q=80&w=600" } ],
+                    '书斋': [ { title: "午后", file: "Study-audio/Afternoon.mp3", cover: "Study-audio/images/A_sunlit_dustfilled_2k_202601131857.jpeg" }, { title: "古籍", file: "Study-audio/Relic.mp3", cover: "Study-audio/images/An_ancient_leatherbound_2k_202601131858.jpeg" }, { title: "茧", file: "Study-audio/Cocoon.mp3", cover: "Study-audio/images/A_soft_translucent_2k_202601131859.jpeg" }, { title: "粉色噪音", file: "Study-audio/Pink.mp3", cover: "Study-audio/images/A_visual_abstraction_2k_202601131858.jpeg" }, { title: "黑洞", file: "Study-audio/Event.mp3", cover: "Study-audio/images/A_cinematic_shot_2k_202601131906.jpeg" }, { title: "核心", file: "Study-audio/Nucleus.mp3", cover: "Study-audio/images/A_cinematic_crosssection_2k_202601131906.jpeg" }, { title: "潮汐", file: "Study-audio/Tide.mp3", cover: "Study-audio/images/A_cinematic_slowmotion_2k_202601131909.jpeg" }, { title: "迷雾", file: "Study-audio/Haze.mp3", cover: "Study-audio/images/Looking_out_from_2k_202601131907.jpeg" }, { title: "盆景", file: "Study-audio/Granular .mp3", cover: "Study-audio/images/A_closeup_of_2k_202601131859.jpeg" }, { title: "雨滴", file: "Study-audio/Circuit.mp3", cover: "Study-audio/images/A_cinematic_view_2k_202601131909.jpeg" } ],
+                    '食味': [ { title: "爆炒", file: "Food-audio/Stir-fry.MP3", cover: "Food-audio/images/Stir-fry.jpeg" }, { title: "清洗", file: "Food-audio/Washing.MP3", cover: "Food-audio/images/Washing.jpeg" }, { title: "切菜", file: "Food-audio/Cut.MP3", cover: "Food-audio/images/Cut.jpeg" }, { title: "餐具", file: "Food-audio/Tableware.MP3", cover: "Food-audio/images/Tableware.jpeg" }, { title: "饮水", file: "Food-audio/Drink.MP3", cover: "Food-audio/images/Drink.jpeg" }, { title: "咀嚼", file: "Food-audio/Chew.MP3", cover: "Food-audio/images/Chew.jpeg" }, { title: "煮沸", file: "Food-audio/Boil.MP3", cover: "Food-audio/images/Boil.jpeg" }, { title: "煎炸", file: "Food-audio/Fry.MP3", cover: "Food-audio/images/Fry.jpeg" }, { title: "嗑瓜子", file: "Food-audio/Crack.MP3", cover: "Food-audio/images/Crack.jpeg" }, { title: "撕包装", file: "Food-audio/Tear.MP3", cover: "Food-audio/images/Tear.jpeg" } ]
+                },
+                mindCollections: {
+                    '减压': [ { title: "定义压力", file: "Mind-audio/定义压力.mp3", cover: "Mind-audio/images/定义压力.jpeg" }, { title: "压力觉察", file: "Mind-audio/压力觉察.mp3", cover: "Mind-audio/images/压力觉察.jpeg" }, { title: "认知提升", file: "Mind-audio/认知提升.mp3", cover: "Mind-audio/images/认知提升.jpeg" }, { title: "唤醒激情", file: "Mind-audio/唤醒激情.mp3", cover: "Mind-audio/images/唤醒激情.jpeg" }, { title: "关注当下", file: "Mind-audio/关注当下.mp3", cover: "Mind-audio/images/关注当下.jpeg" } ],
+                    '疗愈': [ { title: "情绪感知", file: "Mind-audio/情绪感知.mp3", cover: "Mind-audio/images/情绪感知.jpeg" }, { title: "聆听怒火", file: "Mind-audio/聆听怒火.mp3", cover: "Mind-audio/images/聆听怒火.jpeg" }, { title: "调整情绪", file: "Mind-audio/调整情绪.mp3", cover: "Mind-audio/images/调整情绪.jpeg" }, { title: "应对冲突", file: "Mind-audio/应对冲突.mp3", cover: "Mind-audio/images/应对冲突.jpeg" }, { title: "尝试退让", file: "Mind-audio/尝试退让.mp3", cover: "Mind-audio/images/尝试退让.jpeg" } ],
+                    '探索': [ { title: "关系之境", file: "Mind-audio/关系之境.mp3", cover: "Mind-audio/images/关系之境.jpeg" }, { title: "卸下防备", file: "Mind-audio/卸下防备.mp3", cover: "Mind-audio/images/卸下防备.jpeg" }, { title: "聆听情绪", file: "Mind-audio/聆听情绪.mp3", cover: "Mind-audio/images/聆听情绪.jpeg" }, { title: "遇见本我", file: "Mind-audio/遇见本我.mp3", cover: "Mind-audio/images/遇见本我.jpeg" }, { title: "新生之旅", file: "Mind-audio/新生之旅.mp3", cover: "Mind-audio/images/新生之旅.jpeg" } ]
+                },
+                init() { window.addEventListener('bh-init', () => this.setTheme(this.currentTheme)); window.addEventListener('global-keydown', () => { if (this.isAlarmRinging) this.stopAlarm(); }); },
+                switchMode(id) { this.currentMode = id; },
+                setTheme(s) { this.currentTheme = s; this.$root.parentElement.__x.$data.bgStyle = `background: linear-gradient(160deg, ${s.s}, ${s.e})`; },
+                setDuration(v) { if(v==0){this.isInfinite=true;this.timer=0;this.statusText='正计时'}else{this.isInfinite=false;this.timer=v*60;this.initialDuration=this.timer;this.statusText='准备'} this.isRunning=false; clearInterval(this.interval); this.stopAlarm(); },
+                setBreath(p,n) { this.breathPattern=p; this.breathName=n; this.statusText='准备'; this.isRunning=false; },
+                setAlarm(s) { this.alarmSound=s; },
+                toggle() { 
+                    if(this.isAlarmRinging) { this.stopAlarm(); return; }
+                    this.isRunning=!this.isRunning; 
+                    if(this.isRunning){ if(this.currentMode==='focus')this.startFocus(); else if(this.currentMode==='breathe')this.startBreathe(); if(this.currentBg && !this.isBgPlaying) { document.getElementById('audio-bg').play(); this.isBgPlaying = true; } if(this.currentVoice && !this.isVoicePlaying) { document.getElementById('audio-voice').play(); this.isVoicePlaying = true; } } 
+                    else { clearInterval(this.interval); this.statusText='暂停'; this.visualStyle='transform:scale(1)'; if(this.isBgPlaying) { document.getElementById('audio-bg').pause(); this.isBgPlaying = false; } if(this.isVoicePlaying) { document.getElementById('audio-voice').pause(); this.isVoicePlaying = false; } } 
+                },
+                startFocus() {
+                    this.statusText = this.isInfinite ? '正计时' : '专注中...'; clearInterval(this.interval);
+                    this.interval = setInterval(() => { if(this.isInfinite) this.timer++; else { this.timer--; if(this.timer<=0) { this.reset(); this.playAlarm(); } } }, 1000);
+                },
+                startBreathe() { const isBox = this.breathPattern === '5-5-5'; const cycle = async () => { if(!this.isRunning) return; this.statusText = '吸气'; this.visualStyle = `transform: scale(1.3); transition-duration: ${isBox?5:4}s`; await this.wait(isBox?5:4); if(!this.isRunning) return; this.statusText = '保持'; this.visualStyle = `transform: scale(1.3); transition-duration: 0s`; await this.wait(isBox?5:7); if(!this.isRunning) return; this.statusText = '呼气'; this.visualStyle = `transform: scale(1); transition-duration: ${isBox?5:8}s`; await this.wait(isBox?5:8); if(!this.isRunning) return; if(isBox) { this.statusText = '保持'; this.visualStyle = `transform: scale(1); transition-duration: 0s`; await this.wait(5); } if(this.isRunning) cycle(); }; cycle(); },
+                playAlarm() { const alarm = document.getElementById('alarm-audio'); let src = 'Nature-audio/Echo.MP3'; if(this.alarmSound === 'campfire') src = 'Nature-audio/Campfire.MP3'; if(this.alarmSound === 'seabreeze') src = 'Nature-audio/Seabreeze.MP3'; alarm.src = src; alarm.loop = true; alarm.play().then(() => this.isAlarmRinging = true); },
+                stopAlarm() { const a = document.getElementById('alarm-audio'); a.pause(); a.currentTime = 0; a.loop = false; this.isAlarmRinging = false; this.statusText = '完成'; },
+                playSample(src) { const a = document.getElementById('alarm-audio'); a.src = src; a.loop = false; a.play(); setTimeout(() => { if(!this.isAlarmRinging) a.pause(); }, 3000); },
+                playSound(track, type) { 
+                    const audioId = type === 'bg' ? 'audio-bg' : 'audio-voice'; const audio = document.getElementById(audioId);
+                    const isCurrent = (type === 'bg' ? this.currentBg : this.currentVoice) === track.file; const isPlaying = type === 'bg' ? this.isBgPlaying : this.isVoicePlaying;
+                    if (isCurrent && isPlaying) { audio.pause(); if(type==='bg') this.isBgPlaying=false; else this.isVoicePlaying=false; } 
+                    else { audio.src = track.file; audio.play(); if(type==='bg') { this.currentBg=track.file; this.isBgPlaying=true; } else { this.currentVoice=track.file; this.isVoicePlaying=true; } }
+                },
+                wait(s) { return new Promise(r => setTimeout(r, s * 1000)); },
+                reset() { this.isRunning=false; clearInterval(this.interval); this.timer=this.isInfinite?0:this.initialDuration; this.statusText='准备'; this.visualStyle='transform:scale(1)'; document.getElementById('audio-bg').pause(); this.isBgPlaying=false; document.getElementById('audio-voice').pause(); this.isVoicePlaying=false; },
+                get timerDisplay() { const t=Math.abs(this.timer); const m=Math.floor(t/60); const s=t%60; return `${m<10?'0'+m:m}:${s<10?'0'+s:s}`; }
+            }
+        }
+
+        // --- Games App (修复版) ---
+        function gamesApp() {
+            return {
+                activeGame: null, currentHint: '',
+                games: [ { id:1, name:"Fluid", icon:"≈", hint:"MOVE TO STIR" }, { id:2, name:"Elastic", icon:"◎", hint:"PULL CENTER" }, { id:3, name:"Orbit", icon:"○", hint:"FLING INTO ORBIT" }, { id:4, name:"Pixels", icon:"▦", hint:"DRAW TO DISINTEGRATE" }, { id:5, name:"Swarm", icon:"⁖", hint:"PARTICLES FOLLOW" }, { id:6, name:"Bloom", icon:"❋", hint:"CLICK TO GROW" } ],
+                async launch(index) {
+                    this.activeGame = true; const game = this.games[index]; this.currentHint = game.hint; await Tone.start(); 
+                    if(window.currentP5) { window.currentP5.remove(); window.currentP5=null; } // 强制清理
+                    const container = document.getElementById('p5-container'); container.innerHTML = '';
+                    const sketch = (p) => {
+                        let c = { bg: p.color('#F9F7F2'), ink: p.color('#2C2C2C'), acc: p.color('#C5A059') };
+                        if(game.id===1){ let pts=[]; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);p.background(c.bg);}; p.draw=()=>{ p.background(249,247,242,50); let v=p.createVector(p.mouseX-p.pmouseX,p.mouseY-p.pmouseY).mult(0.5); if(p.mouseIsPressed||v.mag()>1)for(let i=0;i<5;i++)pts.push({pos:p.createVector(p.mouseX,p.mouseY),vel:p5.Vector.random2D().mult(2),life:255}); for(let i=pts.length-1;i>=0;i--){let pt=pts[i];pt.pos.add(pt.vel);pt.life-=3;p.noStroke();p.fill(44,44,44,pt.life);p.circle(pt.pos.x,pt.pos.y,p.map(pt.life,0,255,2,15));if(pt.life<0)pts.splice(i,1);} }; }
+                        else if(game.id===2){ let center; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);center=p.createVector(p.width/2,p.height/2);}; p.draw=()=>{ p.background(c.bg); let t=p.mouseIsPressed?p.createVector(p.mouseX,p.mouseY):p.createVector(p.width/2,p.height/2); let f=p5.Vector.sub(t,center);f.mult(0.1);center.add(f); p.noFill();p.stroke(44,50);for(let i=0;i<12;i++){let pos=p5.Vector.lerp(p.createVector(p.width/2,p.height/2),center,(i+1)/12);p.circle(pos.x,pos.y,40+i*35);} p.stroke(c.acc);p.line(p.width/2,p.height/2,center.x,center.y);p.fill(c.ink);p.circle(center.x,center.y,8); }; }
+                        else if(game.id===3){ let orbs=[]; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);}; p.mousePressed=()=>{orbs.push({pos:p.createVector(p.mouseX,p.mouseY),vel:p5.Vector.random2D().mult(5)});}; p.draw=()=>{ p.background(249,247,242,50); p.fill(c.ink);p.noStroke();p.circle(p.width/2,p.height/2,30); orbs.forEach(o=>{let g=p5.Vector.sub(p.createVector(p.width/2,p.height/2),o.pos);g.setMag(0.5);o.vel.add(g);o.pos.add(o.vel);p.fill(c.acc);p.circle(o.pos.x,o.pos.y,10);}); }; }
+                        else if(game.id===4){ let ps=[],s=25; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);let cols=p.width/s,rows=p.height/s;for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)ps.push({x:i*s,y:j*s,ox:i*s,oy:j*s,a:false,vx:0,vy:0});}; p.draw=()=>{ p.background(c.bg);p.noStroke(); for(let px of ps){if(!px.a){if(p.dist(p.mouseX,p.mouseY,px.x,px.y)<40&&p.mouseIsPressed){px.a=true;px.vx=p.random(-4,4);px.vy=p.random(-4,4);}p.fill(240);p.rect(px.x,px.y,s-1,s-1);}else{px.x+=px.vx;px.y+=px.vy;px.vy+=0.5;p.fill(c.ink);p.rect(px.x,px.y,s-1,s-1);if(px.y>p.height){px.a=false;px.x=px.ox;px.y=px.oy;}}} }; }
+                        else if(game.id===5){ let bs=[]; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);for(let i=0;i<100;i++)bs.push({pos:p.createVector(p.random(p.width),p.random(p.height)),vel:p5.Vector.random2D()});}; p.draw=()=>{ p.background(249,247,242,50); let t=p.createVector(p.mouseX,p.mouseY); bs.forEach(b=>{let d=p5.Vector.sub(t,b.pos);d.setMag(0.5);b.vel.add(d);b.vel.limit(5);b.pos.add(b.vel);p.stroke(c.ink);p.point(b.pos.x,b.pos.y);}); }; }
+                        else if(game.id===6){ let fls=[]; p.setup=()=>{p.createCanvas(window.innerWidth,window.innerHeight);p.background(c.bg);p.colorMode(p.HSB);}; p.mousePressed=()=>{fls.push({x:p.mouseX,y:p.mouseY,r:0,max:p.random(50,150),h:p.random(360)});}; p.draw=()=>{for(let f of fls){if(f.r<f.max){f.r++;p.noStroke();p.fill(f.h,50,80,0.1);p.circle(f.x,f.y,f.r);}}}; }
+                    };
+                    window.currentP5 = new p5(sketch, container);
+                }
+            }
+        }
+
+        // --- Night Light App (修复版) ---
+        function nightLightApp() {
+            return {
+                hue: 260, sat: 100, bri: 100, showControls: false,
+                get light() { return 10 + (this.bri / 100) * 45; }, // 亮度映射算法
+                interact() {
+                    const char = document.querySelector('#module-nightlight .character-container');
+                    char.style.animation = 'none'; char.offsetHeight; /* trigger reflow */
+                    char.style.animation = 'jelly 0.4s ease-in-out, float 5s ease-in-out infinite, bob 2s ease-in-out infinite alternate';
+                }
+            }
+        }
+
+        // --- Oracle App (修复版) ---
+        function oracleApp() {
+            return {
+                activeTab: 'cards', cardState: {selected:false, isShuffling:false}, currentCard: {id:0, image:''},
+                bookState: {isPressing:false, isOpen:false}, currentAnswer: {en:'', cn:''},
+                answers: [ {cn:"去做吧。",en:"Just do it."}, {cn:"再等等。",en:"Wait."}, {cn:"坚持直觉。",en:"Trust intuition."}, {cn:"并非良机。",en:"Not the best time."}, {cn:"答案在心中。",en:"The answer is within."} ], // 示例，实际使用 v9.0 的全量数据
+                drawRandomCard() {
+                    if(this.cardState.isShuffling) return; this.cardState.isShuffling = true;
+                    let iv = setInterval(()=>playSysSound('tick'),100);
+                    setTimeout(()=>{ clearInterval(iv); this.currentCard.id = Math.floor(Math.random()*30); this.currentCard.image = `images/${this.currentCard.id+1}.jpg`; this.cardState.isShuffling=false; this.cardState.selected=true; playSysSound('open'); }, 800);
+                },
+                resetCard() { this.cardState.selected=false; },
+                startPress() { if(this.bookState.isOpen)return; this.bookState.isPressing=true; this.tickInterval=setInterval(()=>playSysSound('tick'),500); this.bt=setTimeout(()=>{clearInterval(this.tickInterval); this.openBook()},3000); },
+                endPress() { if(this.bookState.isOpen)return; clearTimeout(this.bt); clearInterval(this.tickInterval); this.bookState.isPressing=false; },
+                openBook() { this.bookState.isPressing=false; this.currentAnswer = this.answers[Math.floor(Math.random()*this.answers.length)]; playSysSound('open'); this.bookState.isOpen=true; },
+                resetBook() { this.bookState.isOpen=false; }
+            }
+        }
+
+        function journalApp() { return { view:'write', dateDisplay:new Date().toLocaleDateString(), entry:{}, history:[], init(){}, save(){}, showDetail(){} } }
+        function chatApp() { return { input:'', messages:[{role:'ai',text:'你好，这里是静屿。'}], send(){ if(!this.input.trim())return; this.messages.push({role:'user',text:this.input}); this.input=''; setTimeout(()=>{this.messages.push({role:'ai',text:'我理解你的感受...'})},1000); } } }
+    </script>
+</body>
+</html>

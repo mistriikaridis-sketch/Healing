@@ -1,0 +1,62 @@
+# 音频资源目录
+# 将以下目录结构中的 MP3 文件放入对应目录：
+
+# 自然类 (Nature-audio)
+# ├── Campfire.MP3
+# ├── Seabreeze.MP3
+# ├── Blizzard.MP3
+# ├── Bamboo.MP3
+# ├── Leviathan.MP3
+# ├── Cascade.MP3
+# ├── Dunes.MP3
+# ├── Echo.MP3
+# ├── Gravel.MP3
+# └── Brook.MP3
+
+# 禅意类 (East-audio)
+# ├── Mountain Streamflow.mp3
+# ├── Summer Breeze.mp3
+# ├── Breathing Vine.mp3
+# ├── Gradual Journey.mp3
+# ├── Lunar Night.mp3
+# ├── Hearthfire Dream.mp3
+# ├── Ink-Wash.mp3
+# ├── Dawn Pulse.mp3
+# ├── Void.mp3
+# └── Pale .mp3
+
+# 书斋类 (Study-audio)
+# ├── Afternoon.mp3
+# ├── Relic.mp3
+# ├── Cocoon.mp3
+# ├── Pink.mp3
+# ├── Event.mp3
+# ├── Nucleus.mp3
+# ├── Tide.mp3
+# ├── Haze.mp3
+# ├── Granular .mp3
+# └── Circuit.mp3
+
+# 食味类 (Food-audio)
+# ├── Stir-fry.MP3
+# ├── Washing.MP3
+# ├── Cut.MP3
+# ├── Tableware.MP3
+# ├── Drink.MP3
+# ├── Chew.MP3
+# ├── Boil.MP3
+# ├── Fry.MP3
+# ├── Crack.MP3
+# └── Tear.MP3
+
+# 正念引导 (Mind-audio)
+# ├── 定义压力.mp3
+# ├── 压力觉察.mp3
+# ├── 认知提升.mp3
+# ├── 唤醒激情.mp3
+# ├── 关注当下.mp3
+# ├── 情绪感知.mp3
+# ├── 聆听怒火.mp3
+# ├── 调整情绪.mp3
+# ├── 应对冲突.mp3
+# └── 尝试退让.mp3

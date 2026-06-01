@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where:*)",
+      "Bash(flutter run)",
+      "Bash(/c/src/flutter/bin/flutter -v run)",
+      "Bash(cmd //c \"where flutter\")",
+      "Bash(powershell -Command:*)",
+      "Bash(cmd //c \"C:\\\\src\\\\flutter\\\\bin\\\\flutter.bat --version\")",
+      "Bash(cmd //c:*)"
+    ]
+  }
+}

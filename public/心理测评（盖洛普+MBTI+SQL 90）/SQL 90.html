@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>症状自评量表 SCL-90 | Clinical Assessment</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Noto+Serif+SC:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'paper': '#FDFCF8',   /* 仿纸张米色背景 */
+                        'ink': '#1A1A1A',     /* 深灰墨色文字 */
+                        'sub': '#666666',     /* 次要信息灰色 */
+                        'line': '#E5E5E5'     /* 分割线颜色 */
+                    },
+                    fontFamily: {
+                        'serif': ['"Playfair Display"', '"Noto Serif SC"', 'serif'],
+                        'sans': ['"Lato"', 'sans-serif'],
+                    },
+                    letterSpacing: {
+                        'widest-xl': '.15em',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background-color: #FDFCF8; color: #1A1A1A; }
+        
+        /* 选项按钮的选中态 */
+        .btn-selected { 
+            background-color: #1A1A1A !important; 
+            color: #FDFCF8 !important; 
+            border-color: #1A1A1A !important;
+        }
+        
+        /* 打印优化 */
+        @media print {
+            .no-print { display: none; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body class="antialiased font-serif min-h-screen flex flex-col" x-data="scl90App()" x-init="initApp()">
+
+    <header class="fixed w-full top-0 z-50 transition-all duration-300" :class="step > 0 ? 'bg-paper/90 backdrop-blur-sm border-b border-line' : ''">
+        <div class="max-w-3xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="text-lg font-serif font-bold tracking-wider cursor-pointer" @click="if(step>0 && confirm('返回首页?')) step=0">
+                SCL-90
+            </div>
+            
+            <div x-show="step === 1" class="flex items-center gap-4 text-xs font-sans tracking-widest text-sub">
+                <span>PROGRESS</span>
+                <span class="text-ink font-bold" x-text="progress + '%'"></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center px-6 pt-20">
+        
+        <div x-show="step === 0" class="w-full max-w-md text-center animate-fade-in py-10">
+            
+            <div class="mb-12">
+                <h1 class="text-3xl md:text-4xl font-serif text-ink font-bold tracking-wide mb-3">
+                    症状自评量表 SCL-90
+                </h1>
+                <p class="text-sm font-sans tracking-widest-xl text-sub uppercase">
+                    Symptom Checklist 90
+                </p>
+            </div>
+
+            <div class="flex justify-center items-center gap-12 mb-16 font-sans text-xs tracking-wide text-sub">
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-ink text-xl font-serif font-semibold">16+</span>
+                    <span class="uppercase tracking-widest text-[10px]">适用年龄 / Age</span>
+                </div>
+                <div class="w-px h-8 bg-line"></div>
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-ink text-xl font-serif font-semibold">90</span>
+                    <span class="uppercase tracking-widest text-[10px]">项目数量 / Items</span>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <button @click="startTest()" class="w-full py-4 bg-ink text-paper text-sm font-sans uppercase tracking-widest hover:bg-sub transition-colors duration-300 rounded-sm shadow-lg shadow-gray-200">
+                    Start Assessment / 开始测评
+                </button>
+
+                <div x-show="hasSavedData">
+                    <button @click="restoreProgress()" class="text-xs font-sans tracking-widest text-sub border-b border-line pb-1 hover:text-ink hover:border-ink transition-all">
+                        RESUME SESSION / 继续上次进度
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="step === 1" x-cloak class="w-full max-w-2xl mx-auto py-10">
+            <template x-for="(qIndex, idx) in currentBatch" :key="qIndex">
+                <div class="mb-16 animate-fade-in">
+                    <div class="flex flex-col items-center text-center mb-8">
+                        <span class="text-xs font-sans text-sub tracking-widest mb-2">ITEM <span x-text="qIndex + 1"></span> / 90</span>
+                        <h3 class="text-2xl font-serif text-ink leading-normal" x-text="questions[qIndex]"></h3>
+                    </div>
+                    
+                    <div class="flex flex-wrap justify-center gap-3">
+                        <template x-for="opt in options" :key="opt.val">
+                            <button 
+                                @click="answer(qIndex, opt.val)"
+                                :class="answers[qIndex] === opt.val ? 'btn-selected' : 'bg-transparent border border-line text-sub hover:border-sub'"
+                                class="w-12 h-12 md:w-16 md:h-16 rounded-full flex flex-col items-center justify-center transition-all duration-300">
+                                <span class="text-lg font-serif" x-text="opt.val"></span>
+                                <span class="text-[10px] font-sans scale-75 uppercase" x-show="answers[qIndex] === opt.val" x-text="opt.label_en"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-sub font-sans uppercase tracking-widest mt-2 px-4 max-w-sm mx-auto">
+                        <span>Never / 从无</span>
+                        <span>Severe / 严重</span>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex justify-between items-center pt-10 border-t border-line">
+                <button @click="prevPage()" :disabled="currentPage === 0" class="text-sm font-sans tracking-widest text-sub hover:text-ink disabled:opacity-0 transition-colors">
+                    ← BACK
+                </button>
+                <button 
+                    @click="nextPage()" 
+                    :disabled="!canGoNext"
+                    :class="canGoNext ? 'bg-ink text-paper' : 'bg-line text-white cursor-not-allowed'"
+                    class="px-8 py-3 text-sm font-sans tracking-widest transition-colors duration-300 rounded-sm">
+                    <span x-text="isLastPage ? 'SUBMIT / 提交' : 'NEXT / 下一页'"></span>
+                </button>
+            </div>
+        </div>
+
+        <div x-show="step === 2" x-cloak id="report-content" class="w-full max-w-3xl mx-auto bg-white p-8 md:p-12 shadow-sm border border-line my-10">
+            <div class="text-center mb-12 border-b border-line pb-8">
+                <h2 class="text-3xl font-serif mb-3 font-bold text-ink">Clinical Analysis Report<br><span class="text-xl font-normal">临床分析报告</span></h2>
+                <p class="text-xs font-sans tracking-widest text-sub uppercase mt-4">
+                    SCL-90 Assessment • <span x-text="currentDate"></span>
+                </p>
+            </div>
+
+            <div x-show="hasCrisis" class="mb-10 p-5 border border-ink text-center bg-red-50/30">
+                <p class="font-serif text-sm text-ink leading-relaxed">
+                    <span class="font-bold block mb-2 text-base">Attention Required / 请注意</span>
+                    检测到特定指标数值较高。建议咨询专业医师以获取准确诊断。<br>
+                    <span class="text-xs text-sub italic mt-1 block">High scores detected in specific indices. Professional consultation is recommended.</span>
+                </p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-12 text-center divide-x divide-line">
+                <div>
+                    <div class="text-3xl font-serif text-ink font-bold" x-text="results.totalScore"></div>
+                    <div class="text-[10px] font-sans tracking-widest text-sub mt-2 uppercase">Total Score<br>总分</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-serif text-ink font-bold" x-text="results.positiveCount"></div>
+                    <div class="text-[10px] font-sans tracking-widest text-sub mt-2 uppercase">Positive Items<br>阳性项目数</div>
+                </div>
+                <div>
+                    <div class="text-3xl font-serif text-ink font-bold" x-text="results.positiveAvg"></div>
+                    <div class="text-[10px] font-sans tracking-widest text-sub mt-2 uppercase">Symptom Index<br>阳性症状均分</div>
+                </div>
+            </div>
+
+            <div class="h-80 w-full relative mb-12">
+                <canvas id="radarChart"></canvas>
+            </div>
+
+            <div class="space-y-6">
+                <div class="flex justify-between border-b border-line pb-2 mb-4">
+                    <span class="text-xs font-sans tracking-widest uppercase font-bold text-sub">Factor / 因子</span>
+                    <span class="text-xs font-sans tracking-widest uppercase font-bold text-sub">Score / 得分 (1-5)</span>
+                </div>
+                <template x-for="factor in results.factors" :key="factor.key">
+                    <div class="flex items-center justify-between group py-1">
+                        <div class="flex flex-col">
+                            <span class="text-sm font-serif text-ink font-bold" x-text="factor.nameEn"></span>
+                            <span class="text-xs font-serif text-sub" x-text="factor.nameCn"></span>
+                        </div>
+                        
+                        <div class="flex items-center gap-4">
+                            <div class="w-32 h-1 bg-line rounded-full overflow-hidden hidden md:block">
+                                <div class="h-full bg-ink transition-all duration-1000" :style="`width: ${(factor.score / 5) * 100}%`"></div>
+                            </div>
+                            <div class="w-8 text-right font-serif font-bold text-ink" x-text="factor.score"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="mt-12 pt-6 border-t border-line text-center">
+                <p class="text-[10px] font-sans tracking-widest text-sub uppercase">
+                    Generated by SCL-90 Professional Tool • <span x-text="new Date().getFullYear()"></span>
+                </p>
+            </div>
+
+            <div class="mt-10 flex justify-center gap-6 no-print" data-html2canvas-ignore>
+                <button @click="exportPDF" class="px-6 py-2 border border-ink text-ink hover:bg-ink hover:text-white transition-colors text-xs font-sans tracking-widest uppercase rounded-sm">
+                    Download Report / 下载报告
+                </button>
+                <button @click="resetTest" class="px-6 py-2 text-sub hover:text-ink transition-colors text-xs font-sans tracking-widest uppercase">
+                    Restart / 重新测试
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function scl90App() {
+            return {
+                step: 0,
+                currentPage: 0,
+                itemsPerPage: 5,
+                currentDate: '', // 用于存储格式化后的日期
+                
+                // 题目数据
+                questions: [
+                   "头痛", "神经过敏，心中不踏实", "头脑中有不必要的想法或字句盘旋", "头晕或晕倒", "对异性的兴趣减退", 
+                   "对旁人责备求全", "感到别人能控制您的思想", "责怪别人制造麻烦", "忘性大", "担心自己的衣饰整齐及仪态的端正",
+                   "容易烦恼和激动", "胸痛", "害怕空旷的场所或街道", "感到自己的精力下降，活动减慢", "想结束自己的生命",
+                   "听到旁人听不到的声音", "发抖", "感到大多数人都不可信任", "胃口不好", "容易哭泣",
+                   "同异性相处时感到害羞不自在", "感到受骗，中了圈套或有人想抓住您", "无缘无故地突然感到害怕", "自己不能控制地大发脾气", "怕单独出门",
+                   "经常责怪自己", "腰痛", "感到难以完成任务", "感到孤独", "感到苦闷",
+                   "过分担忧", "对事物不感兴趣", "感到害怕", "您的感情容易受到伤害", "旁人能知道您的私下想法",
+                   "感到别人不理解您、不同情您", "感到人们对您不友好，不喜欢您", "做事必须做得很慢以保证做得正确", "心跳得很厉害", "恶心或胃部不舒服",
+                   "感到比不上他人", "肌肉酸痛", "感到有人在监视您、谈论您", "难以入睡", "做事必须反复检查",
+                   "难以做出决定", "怕乘电车、公共汽车、地铁或火车", "呼吸有困难", "一阵阵发冷或发热", "因为感到害怕而避开某些东西、场合或活动",
+                   "脑子变空了", "身体发麻或刺痛", "喉咙有梗塞感", "感到前途没有希望", "不能集中注意力",
+                   "感到身体的某一部分软弱无力", "感到紧张或容易紧张", "感到手或脚发重", "想到死亡的事", "吃得太多",
+                   "当别人看着您或谈论您时感到不自在", "有一些不属于您自己的想法", "有想打人或伤害他人的冲动", "醒得太早", "必须反复洗手、点数",
+                   "睡得不稳不深", "有想摔坏或破坏东西的想法", "有一些别人没有的想法", "感到对别人神经过敏", "在商店或电影院等人多的地方感到不自在",
+                   "感到任何事情都很困难", "一阵阵恐惧或惊恐", "感到公共场合吃东西很不舒服", "经常与人争论", "单独一人时神经很紧张",
+                   "别人对您的成绩没有做出恰当的评价", "即使和别人在一起也感到孤单", "感到坐立不安心神不定", "感到自己没有什么价值", "感到熟悉的东西变成陌生或不像是真的",
+                   "大叫或摔东西", "害怕会在公共场合晕倒", "感到别人想占您的便宜", "为一些有关性的想法而很苦恼", "您认为应该因为自己的过错而受到惩罚",
+                   "感到要很快把事情做完", "感到自己的身体有严重问题", "从未感到和其他人很亲近", "感到自己有罪", "感到自己的脑子有毛病"
+                ],
+                options: [
+                    { label: "从无", label_en: "None", val: 1 },
+                    { label: "很轻", label_en: "Mild", val: 2 },
+                    { label: "中等", label_en: "Mod", val: 3 },
+                    { label: "偏重", label_en: "Sev", val: 4 },
+                    { label: "严重", label_en: "Ext", val: 5 }
+                ],
+                answers: new Array(90).fill(null),
+                hasSavedData: false,
+                results: {},
+                hasCrisis: false,
+
+                get totalPages() { return Math.ceil(this.questions.length / this.itemsPerPage); },
+                get currentBatch() {
+                    const start = this.currentPage * this.itemsPerPage;
+                    return Array.from({length: this.itemsPerPage}, (_, i) => start + i).filter(i => i < 90);
+                },
+                get progress() { return Math.round((this.answers.filter(a => a !== null).length / 90) * 100); },
+                get canGoNext() { return this.currentBatch.every(idx => this.answers[idx] !== null); },
+                get isLastPage() { return this.currentPage === this.totalPages - 1; },
+
+                initApp() {
+                    // 初始化日期
+                    const now = new Date();
+                    this.currentDate = now.toLocaleDateString('zh-CN', { 
+                        year: 'numeric', 
+                        month: '2-digit', 
+                        day: '2-digit' 
+                    }).replace(/\//g, '/');
+
+                    const saved = localStorage.getItem('scl90_answers');
+                    if (saved && JSON.parse(saved).length === 90) this.hasSavedData = true;
+                },
+
+                restoreProgress() {
+                    this.answers = JSON.parse(localStorage.getItem('scl90_answers'));
+                    this.startTest();
+                    const firstUnanswered = this.answers.findIndex(a => a === null);
+                    if (firstUnanswered !== -1) this.currentPage = Math.floor(firstUnanswered / this.itemsPerPage);
+                },
+
+                startTest() {
+                    this.step = 1;
+                    window.scrollTo(0, 0);
+                },
+
+                answer(index, val) {
+                    let newAnswers = [...this.answers];
+                    newAnswers[index] = val;
+                    this.answers = newAnswers;
+                    localStorage.setItem('scl90_answers', JSON.stringify(this.answers));
+                },
+
+                prevPage() {
+                    if (this.currentPage > 0) { this.currentPage--; window.scrollTo(0, 0); }
+                },
+
+                nextPage() {
+                    if (this.isLastPage) { this.calculateAndShowResults(); } 
+                    else { this.currentPage++; window.scrollTo(0, 0); }
+                },
+
+                calculateAndShowResults() {
+                    // 定义因子映射，包含中英文名
+                    const factorsMap = [
+                        { key: "Somatization", nameCn: "躯体化", ids: [0,3,11,26,39,41,47,48,51,52,55,57] },
+                        { key: "OCD", nameCn: "强迫症状", ids: [2,8,9,27,37,44,45,50,54,64] },
+                        { key: "Interpersonal", nameCn: "人际关系敏感", ids: [5,20,33,35,36,40,60,68,72] },
+                        { key: "Depression", nameCn: "抑郁", ids: [4,13,14,19,21,25,28,29,30,31,53,70,78] },
+                        { key: "Anxiety", nameCn: "焦虑", ids: [1,16,22,32,38,56,71,77,79,85] },
+                        { key: "Hostility", nameCn: "敌对", ids: [10,23,62,66,73,80] },
+                        { key: "Phobic", nameCn: "恐怖", ids: [12,24,46,49,69,74,81] },
+                        { key: "Paranoid", nameCn: "偏执", ids: [7,17,42,67,75,82] },
+                        { key: "Psychoticism", nameCn: "精神病性", ids: [6,15,34,61,76,83,84,86,87,89] },
+                        { key: "Other", nameCn: "其他(饮食睡眠)", ids: [18,43,58,59,63,65,88] }
+                    ];
+
+                    let totalScore = 0;
+                    let positiveCount = 0;
+                    let factorScores = [];
+
+                    this.answers.forEach(val => {
+                        totalScore += val;
+                        if (val >= 2) positiveCount++;
+                    });
+
+                    factorsMap.forEach(f => {
+                        let sum = f.ids.reduce((acc, idx) => acc + this.answers[idx], 0);
+                        let avg = (sum / f.ids.length).toFixed(2);
+                        factorScores.push({ key: f.key, nameEn: f.key, nameCn: f.nameCn, score: avg });
+                    });
+
+                    // 危机判断
+                    const depressionScore = factorScores.find(f => f.key === 'Depression').score;
+                    // 第15题(索引14)是"想结束自己的生命"
+                    if (depressionScore > 3 || this.answers[14] >= 3) this.hasCrisis = true;
+
+                    this.results = {
+                        totalScore,
+                        positiveCount,
+                        positiveAvg: positiveCount > 0 ? ((totalScore - (90 - positiveCount)) / positiveCount).toFixed(2) : 0,
+                        factors: factorScores
+                    };
+
+                    this.step = 2;
+                    setTimeout(() => this.renderChart(factorScores), 100);
+                    localStorage.removeItem('scl90_answers');
+                    window.scrollTo(0, 0);
+                },
+
+                renderChart(data) {
+                    const ctx = document.getElementById('radarChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'radar',
+                        data: {
+                            labels: data.map(d => d.nameEn), // 仅显示英文名保持图表整洁
+                            datasets: [{
+                                label: 'Score',
+                                data: data.map(d => d.score),
+                                backgroundColor: 'rgba(26, 26, 26, 0.1)',
+                                borderColor: '#1A1A1A',
+                                pointBackgroundColor: '#FDFCF8',
+                                pointBorderColor: '#1A1A1A',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                r: {
+                                    angleLines: { color: '#E5E5E5' },
+                                    grid: { color: '#E5E5E5' },
+                                    pointLabels: { font: { family: 'Lato', size: 10 }, color: '#888' },
+                                    suggestedMin: 1,
+                                    suggestedMax: 5,
+                                    ticks: { display: false }
+                                }
+                            },
+                            plugins: { legend: { display: false } },
+                            maintainAspectRatio: false
+                        }
+                    });
+                },
+
+                exportPDF() {
+                    const element = document.getElementById('report-content');
+                    const { jsPDF } = window.jspdf;
+                    html2canvas(element, { scale: 2 }).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const pdf = new jsPDF();
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        pdf.save(`SCL90_Report_${this.currentDate.replace(/\//g,'-')}.pdf`);
+                    });
+                },
+                
+                resetTest() {
+                    if(confirm('Restart assessment? / 确定重新开始吗？')) {
+                        localStorage.removeItem('scl90_answers');
+                        location.reload();
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

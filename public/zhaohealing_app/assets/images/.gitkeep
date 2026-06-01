@@ -1,0 +1,65 @@
+# 图片资源目录
+# 将以下目录结构中的图片文件放入对应目录：
+
+# 自然类封面 (Nature-audio)
+# ├── campfire.jpg
+# ├── seabreeze.jpg
+# ├── blizzard.jpg
+# ├── bamboo.jpg
+# ├── whale.jpg
+# ├── cascade.jpg
+# ├── dunes.jpg
+# ├── echo.jpg
+# ├── gravel.jpg
+# └── brook.jpg
+
+# 禅意类封面 (East-audio)
+# ├── mountain.jpg
+# ├── summer.jpg
+# ├── vine.jpg
+# ├── journey.jpg
+# ├── lunar.jpg
+# ├── hearthfire.jpg
+# ├── ink.jpg
+# ├── dawn.jpg
+# ├── void.jpg
+# └── pale.jpg
+
+# 书斋类封面 (Study-audio)
+# ├── afternoon.jpg
+# ├── relic.jpg
+# ├── cocoon.jpg
+# ├── pink.jpg
+# ├── event.jpg
+# ├── nucleus.jpg
+# ├── tide.jpg
+# ├── haze.jpg
+# ├── granular.jpg
+# └── circuit.jpg
+
+# 食味类封面 (Food-audio)
+# ├── stirfry.jpg
+# ├── washing.jpg
+# ├── cut.jpg
+# ├── tableware.jpg
+# ├── drink.jpg
+# ├── chew.jpg
+# ├── boil.jpg
+# ├── fry.jpg
+# ├── crack.jpg
+# └── tear.jpg
+
+# 正念引导封面 (Mind-audio)
+# ├── define_stress.jpg
+# ├── stress_awareness.jpg
+# ├── cognitive.jpg
+# ├── passion.jpg
+# ├── present.jpg
+# ├── emotion.jpg
+# ├── anger.jpg
+# ├── adjust.jpg
+# ├── conflict.jpg
+# └── compromise.jpg
+
+# 卡片封面 (images)
+# ├── 1.jpg ~ 30.jpg (30张塔罗牌/神谕卡)

@@ -1,0 +1,21 @@
+# 静屿灵犀后端依赖
+# 安装: pip install -r requirements.txt
+
+# Web 服务器
+aiohttp>=3.9.0
+aiohttp-cors>=0.7.0
+
+# 异步支持
+asyncio>=3.4.3
+
+# OpenAI (用于 Whisper 和 TTS)
+openai>=1.0.0
+
+# 可选: 百度语音识别/合成
+# baidu-aip>=2.2.18
+
+# 可选: 讯飞语音
+# xfyun>=0.1.0
+
+# 可选: 阿里云语音
+# aliyun-python-sdk-nls>=1.1.5

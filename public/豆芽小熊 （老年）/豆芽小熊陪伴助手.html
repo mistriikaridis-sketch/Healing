@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆芽小熊 - 生命纪录官</title>
+    <style>
+        :root { --main: #A67C52; --bg: #FDFBF7; }
+        body { margin: 0; background: var(--bg); font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* 登录弹窗 */
+        #loginOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: white; padding: 40px; border-radius: 24px; text-align: center; width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        input, select { width: 100%; padding: 14px; margin: 10px 0; border: 2px solid #eee; border-radius: 12px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input:focus { border-color: var(--main); }
+        
+        /* 侧边栏 */
+        .sidebar { width: 400px; background: white; border-left: 1px solid #EFE4D8; display: flex; flex-direction: column; }
+        .record-title { padding: 25px; background: var(--main); color: white; text-align: center; font-weight: bold; font-size: 1.2rem; }
+        .record-list { flex: 1; padding: 20px; overflow-y: auto; background: #fafafa; }
+        .msg { margin-bottom: 25px; padding: 18px; border-radius: 12px; font-size: 16px; line-height: 1.6; word-wrap: break-word; }
+        .msg-user { background: #EFE4D8; border-left: 5px solid var(--main); margin-left: 20px; }
+        .msg-bear { background: white; border-left: 5px solid #55B36F; margin-right: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        /* 主舞台 */
+        .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 5vh; position: relative; }
+        .bubble-box { width: 80%; max-width: 500px; min-height: 120px; display: flex; align-items: flex-end; justify-content: center; margin-bottom: 20px; }
+        .bubble { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); font-size: 22px; width: 100%; border: 2px solid #F0E6D2; opacity: 0; transition: 0.4s; line-height: 1.6; }
+        .bubble.show { opacity: 1; }
+
+        .bear-container { width: 250px; position: relative; }
+        .bear-img { width: 100%; height: auto; mix-blend-mode: multiply; filter: contrast(1.05); animation: float 6s infinite ease-in-out; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+        .mic-btn { width: 100px; height: 100px; border-radius: 50%; border: none; background: var(--main); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(166,124,82,0.4); margin-top: 30px; transition: 0.3s; }
+        .mic-btn:active { transform: scale(0.9); }
+        .mic-btn.listening { background: #E07A5F; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(224,122,95, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(224,122,95, 0); } 100% { box-shadow: 0 0 0 0 rgba(224,122,95, 0); } }
+        
+        .status-text { margin-top: 15px; color: var(--main); font-weight: bold; font-size: 18px; height: 24px; }
+        
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow-y: auto; }
+            .sidebar { width: 100%; height: 300px; border-left: none; border-top: 1px solid #eee; }
+            .stage { height: 70vh; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2 style="color:var(--main); margin-bottom:20px;">📜 生命纪录官：入场登记</h2>
+            <input type="text" id="userName" placeholder="请输入您的姓名">
+            <input type="text" id="userPhone" placeholder="请输入您的联系方式">
+            <select id="userGender">
+                <option value="female">奶奶 (女)</option>
+                <option value="male">爷爷 (男)</option>
+            </select>
+            <button onclick="startApp()" style="width:100%; padding:18px; background:var(--main); color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold; font-size:18px; margin-top:10px;">开启生命回顾</button>
+            <p id="envWarning" style="color: red; font-size: 12px; display: none; margin-top: 10px;">检测到非HTTPS环境，语音识别可能无法正常工作</p>
+        </div>
+    </div>
+
+    <div class="stage">
+        <div class="bubble-box">
+            <div id="bubble" class="bubble"></div>
+        </div>
+        <div class="bear-container">
+            <img src="小熊.gif" class="bear-img" alt="豆芽小熊">
+        </div>
+        <button id="micBtn" class="mic-btn">
+            <svg viewBox="0 0 24 24" fill="white" width="40"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </button>
+        <p id="status" class="status-text">点击按钮开始说话</p>
+    </div>
+
+    <div class="sidebar">
+        <div class="record-title">岁月留声机 (访谈实录)</div>
+        <div id="recordList" class="record-list"></div>
+    </div>
+
+    <script>
+        // ================= 配置区域 =================
+        // ⚠️ 请将此处替换为你服务器的真实公网域名或 IP 地址
+        // 如果后端在本地运行，外网是访问不到 127.0.0.1 的
+        const API_BASE_URL = "https://your-api-domain.com"; 
+        // ===========================================
+
+        let userInfo = {};
+        let history = [];
+        let fullText = "";
+        
+        // 语音识别初始化
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+
+        if (!SpeechRecognition) {
+            alert("您的浏览器不支持语音识别，请使用 Chrome 或 Safari 访问。");
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-CN';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+        }
+
+        // HTTPS 环境检查
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            document.getElementById('envWarning').style.display = 'block';
+        }
+
+        function startApp() {
+            const name = document.getElementById('userName').value;
+            const phone = document.getElementById('userPhone').value;
+            const gender = document.getElementById('userGender').value;
+            
+            if(!name || !phone) return alert("请完整填写登记信息");
+            
+            userInfo = { name, phone, gender };
+            document.getElementById('loginOverlay').style.display = 'none';
+            
+            const welcome = `${gender==='male'?'爷爷':'奶奶'}您好。我是‘豆芽小熊’。很高兴能听您讲故事。您先跟我说说，您小时候住的房子是什么样子的？`;
+            showBubble(welcome); 
+            addRecord('bear', welcome);
+        }
+
+        function showBubble(text) {
+            const b = document.getElementById('bubble');
+            b.innerText = text; 
+            b.classList.add('show');
+        }
+
+        function addRecord(role, text) {
+            const list = document.getElementById('recordList');
+            const div = document.createElement('div');
+            const title = role === 'user' ? (userInfo.gender === 'male' ? '爷爷' : '奶奶') : '豆芽小熊';
+            div.className = `msg ${role === 'user' ? 'msg-user' : 'msg-bear'}`;
+            div.innerHTML = `<small style="color:#888; font-size:12px;">${title}:</small><br>${text}`;
+            list.appendChild(div); 
+            list.scrollTop = list.scrollHeight;
+        }
+
+        document.getElementById('micBtn').onclick = () => {
+            if (!recognition) return;
+            const btn = document.getElementById('micBtn');
+            const status = document.getElementById('status');
+
+            if (btn.classList.contains('listening')) {
+                recognition.stop();
+                btn.classList.remove('listening');
+                status.innerText = "正在整理思路...";
+            } else {
+                fullText = "";
+                try {
+                    recognition.start();
+                    btn.classList.add('listening');
+                    status.innerText = "正在倾听... (讲完点我一下)";
+                } catch (e) {
+                    console.error("启动失败:", e);
+                }
+            }
+        };
+
+        if (recognition) {
+            recognition.onresult = (e) => {
+                let interim = "";
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                    if (e.results[i].isFinal) fullText += e.results[i][0].transcript;
+                    else interim += e.results[i][0].transcript;
+                }
+            };
+
+            recognition.onend = async () => {
+                if (!fullText.trim()) { 
+                    document.getElementById('status').innerText = "没听清，再点一次试试？"; 
+                    document.getElementById('micBtn').classList.remove('listening');
+                    return; 
+                }
+                
+                addRecord('user', fullText);
+
+                try {
+                    const res = await fetch(`${API_BASE_URL}/chat`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ text: fullText, history, userInfo })
+                    });
+                    
+                    if (!res.ok) throw new Error("服务器连接失败");
+                    
+                    const data = await res.json();
+                    
+                    showBubble(data.chat_text);
+                    addRecord('bear', data.chat_text);
+                    
+                    // 播放返回的语音
+                    if (data.audio_url) {
+                        const audio = new Audio(data.audio_url);
+                        audio.play().catch(e => console.log("自动播放被拦截，需要用户点击"));
+                    }
+
+                    history.push({role:"user", content:fullText}, {role:"assistant", content:data.chat_text});
+                } catch (error) {
+                    console.error("Error:", error);
+                    showBubble("哎呀，小熊走神了，能再说一遍吗？");
+                } finally {
+                    document.getElementById('status').innerText = "点击按钮开始说话";
+                }
+            };
+        }
+    </script>
+</body>
+</html>

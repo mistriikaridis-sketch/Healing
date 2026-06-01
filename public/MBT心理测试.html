@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Type | 专业人格测评</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 全局样式 --- */
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .serif { font-family: 'Noto Serif SC', serif; }
+        
+        /* --- 动画系统 --- */
+        .fade-in { animation: fadeIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 题目切换动画类 */
+        .slide-out { opacity: 0; transform: translateX(-30px); transition: all 0.3s ease-in; }
+        .slide-in-start { opacity: 0; transform: translateX(30px); }
+        .slide-in-end { opacity: 1; transform: translateX(0); transition: all 0.3s ease-out; }
+
+        /* --- 七分制打分条样式 --- */
+        .likert-btn {
+            border-radius: 50%;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            border: 2px solid;
+            position: relative;
+        }
+        .likert-btn:hover { transform: scale(1.15); }
+        .likert-btn:active { transform: scale(0.95); }
+
+        /* 同意侧 (绿色) */
+        .btn-agree-3 { width: 48px; height: 48px; border-color: #059669; color: #059669; } /* 非常同意 */
+        .btn-agree-2 { width: 38px; height: 38px; border-color: #10b981; color: #10b981; }
+        .btn-agree-1 { width: 28px; height: 28px; border-color: #34d399; color: #34d399; }
+        
+        /* 中立 (灰色) */
+        .btn-neutral { width: 20px; height: 20px; border-color: #9ca3af; color: #9ca3af; background-color: transparent; }
+
+        /* 不同意侧 (紫色/粉色) */
+        .btn-disagree-1 { width: 28px; height: 28px; border-color: #c084fc; color: #c084fc; }
+        .btn-disagree-2 { width: 38px; height: 38px; border-color: #a855f7; color: #a855f7; }
+        .btn-disagree-3 { width: 48px; height: 48px; border-color: #7e22ce; color: #7e22ce; } /* 非常不同意 */
+
+        /* 选中填充状态 */
+        .likert-btn.selected { background-color: currentColor; box-shadow: 0 0 0 4px rgba(255,255,255,1), 0 0 0 6px currentColor; }
+
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 加载动画 */
+        .pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid #6366f1;
+            opacity: 0;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="location.reload()">
+                <div class="h-8 px-2 bg-indigo-600 rounded flex items-center justify-center text-white font-black serif tracking-widest text-sm shadow-indigo-200 shadow-lg">MBTI</div>
+                <span class="text-xl font-bold tracking-tight text-slate-900">Nexus Type</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="app.resetProgress()" id="reset-btn" class="hidden text-xs text-red-400 hover:text-red-600 font-bold uppercase tracking-wider">重置进度</button>
+                <div class="text-xs font-mono text-gray-400 uppercase tracking-widest hidden sm:block">Professional Assessment</div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow relative w-full overflow-hidden">
+        
+        <section id="landing-page" class="max-w-4xl mx-auto px-6 py-20 text-center fade-in flex flex-col items-center justify-center min-h-[80vh]">
+            
+            <h1 class="text-4xl md:text-6xl font-black text-slate-900 mb-6 serif leading-tight tracking-tight text-center">
+                <span>不止于 <span class="text-3xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 font-extrabold mx-1">E/I</span></span><br>
+                <span>解锁完整人格密码</span>
+            </h1>
+            
+            <div class="text-base md:text-lg text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed space-y-2 text-center">
+                <p>基于权威 NERIS 模型与大五人格理论</p>
+                <p class="font-medium text-slate-800">深入洞察你的<strong>核心动机</strong>、<strong>决策逻辑</strong>与<strong>身份策略 (A/T)</strong></p>
+            </div>
+            
+            <div id="continue-prompt" class="hidden mb-8 bg-indigo-50 px-6 py-3 rounded-xl border border-indigo-100 animate-bounce">
+                <p class="text-indigo-700 font-bold text-sm">检测到您有未完成的进度，是否继续？</p>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="app.start(true)" id="btn-continue" class="hidden group relative items-center justify-center px-8 py-3 text-lg font-bold text-white transition-all duration-200 bg-indigo-600 rounded-full hover:bg-indigo-700 hover:shadow-xl focus:outline-none ring-offset-2 focus:ring-2 ring-indigo-600">
+                    继续测评 (<span id="saved-idx">0</span>/60)
+                </button>
+                
+                <button onclick="app.start(false)" class="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold text-slate-700 bg-white border-2 border-slate-200 transition-all duration-200 rounded-full hover:border-slate-900 hover:text-slate-900 focus:outline-none">
+                    <span id="btn-start-text">开始探索</span>
+                </button>
+            </div>
+        </section>
+
+        <section id="quiz-page" class="hidden max-w-2xl mx-auto px-6 py-10 min-h-screen">
+            <div class="w-full h-1.5 bg-gray-200 rounded-full mb-12 overflow-hidden">
+                <div id="progress-bar" class="h-full bg-indigo-600 progress-transition shadow-[0_0_10px_rgba(79,70,229,0.5)]" style="width: 0%"></div>
+            </div>
+
+            <div id="question-card" class="fade-in">
+                <div class="flex justify-between items-center mb-8">
+                    <span class="text-xs font-bold text-gray-400 tracking-[0.2em]">QUESTION <span id="q-current" class="text-indigo-600 text-base">1</span> / 60</span>
+                </div>
+                
+                <h2 id="q-text" class="text-2xl md:text-3xl font-bold text-slate-900 mb-16 serif leading-snug min-h-[5rem] text-center select-none">
+                    题目加载中...
+                </h2>
+
+                <div class="flex flex-col items-center space-y-6 select-none">
+                    <div class="flex items-center justify-center w-full max-w-lg justify-between px-2 md:px-8">
+                        <div class="text-xs font-bold text-emerald-600 uppercase tracking-widest hidden md:block">同意</div>
+                        
+                        <div class="flex items-center gap-3 md:gap-5">
+                            <button onclick="app.answer(3)" class="likert-btn btn-agree-3" title="非常同意"></button>
+                            <button onclick="app.answer(2)" class="likert-btn btn-agree-2" title="同意"></button>
+                            <button onclick="app.answer(1)" class="likert-btn btn-agree-1" title="稍微同意"></button>
+                            
+                            <button onclick="app.answer(0)" class="likert-btn btn-neutral" title="中立/不确定"></button>
+                            
+                            <button onclick="app.answer(-1)" class="likert-btn btn-disagree-1" title="稍微不同意"></button>
+                            <button onclick="app.answer(-2)" class="likert-btn btn-disagree-2" title="不同意"></button>
+                            <button onclick="app.answer(-3)" class="likert-btn btn-disagree-3" title="非常不同意"></button>
+                        </div>
+
+                        <div class="text-xs font-bold text-purple-600 uppercase tracking-widest hidden md:block">不同意</div>
+                    </div>
+                    
+                    <div class="flex justify-between w-full max-w-lg px-4 md:hidden text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        <span class="text-emerald-600">同意</span>
+                        <span class="text-purple-600">不同意</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="loading-page" class="hidden fixed inset-0 bg-white z-[60] flex flex-col items-center justify-center">
+            <div class="relative w-24 h-24 mb-8 flex items-center justify-center">
+                <div class="pulse-ring"></div>
+                <div class="pulse-ring" style="animation-delay: 1s;"></div>
+                <svg class="w-10 h-10 text-indigo-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-900 mb-2 serif" id="loading-text">正在分析大脑图谱...</h2>
+            <div class="w-64 h-1.5 bg-gray-100 rounded-full overflow-hidden mt-4">
+                <div class="h-full bg-indigo-600 animate-[width_3s_ease-out_forwards]" style="width: 0%"></div>
+            </div>
+        </section>
+
+        <section id="result-page" class="hidden w-full bg-white min-h-screen pb-24">
+            <header id="result-header" class="relative text-white pt-20 pb-32 px-6 overflow-hidden transition-colors duration-700 bg-gray-900">
+                <div class="absolute top-0 right-0 w-[40rem] h-[40rem] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                
+                <div class="max-w-5xl mx-auto relative z-10 text-center md:text-left md:flex md:items-end md:justify-between">
+                    <div>
+                        <div id="res-role-badge" class="inline-block px-3 py-1 rounded border border-white/30 bg-white/10 backdrop-blur-md text-xs font-bold tracking-widest uppercase mb-4">
+                            分析家
+                        </div>
+                        <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-2 serif opacity-95" id="res-code">INTJ-A</h1>
+                        <h2 class="text-2xl md:text-4xl font-bold text-white/90 tracking-tight" id="res-name">建筑师</h2>
+                    </div>
+                    <div class="mt-8 md:mt-0 text-center md:text-right">
+                        <div class="text-xs font-bold text-white/60 uppercase tracking-widest mb-2">Identity Strategy</div>
+                        <div id="res-identity" class="text-xl md:text-2xl font-bold">自信型 (Assertive)</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="max-w-5xl mx-auto px-6 -mt-20 relative z-20">
+                <div class="bg-white rounded-2xl shadow-xl p-8 md:p-12 mb-10 text-center border border-gray-100">
+                    <blockquote class="text-xl md:text-2xl font-serif italic mb-6 text-slate-800 leading-relaxed" id="res-quote">“...”</blockquote>
+                    <cite class="text-xs font-bold text-gray-400 not-italic tracking-widest uppercase" id="res-author">— AUTHOR</cite>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                    <div class="lg:col-span-8 space-y-12">
+                        <section>
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center"><span class="w-1.5 h-6 bg-slate-900 mr-3 rounded-full"></span>人格画像</h3>
+                            <div id="res-intro" class="prose prose-lg text-slate-600 leading-7 text-justify prose-p:mb-4"></div>
+                        </section>
+                        
+                        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-emerald-50/60 p-6 rounded-2xl border border-emerald-100">
+                                <h4 class="text-emerald-800 font-bold mb-4 flex items-center text-sm uppercase tracking-wider"><span class="mr-2">✨</span> 优势 Strengths</h4>
+                                <ul id="res-strengths" class="space-y-3 text-sm text-slate-700 list-disc list-inside marker:text-emerald-500"></ul>
+                            </div>
+                            <div class="bg-rose-50/60 p-6 rounded-2xl border border-rose-100">
+                                <h4 class="text-rose-800 font-bold mb-4 flex items-center text-sm uppercase tracking-wider"><span class="mr-2">⚠️</span> 劣势 Weaknesses</h4>
+                                <ul id="res-weaknesses" class="space-y-3 text-sm text-slate-700 list-disc list-inside marker:text-rose-500"></ul>
+                            </div>
+                        </section>
+
+                        <section>
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center"><span class="w-1.5 h-6 bg-indigo-600 mr-3 rounded-full"></span>职业发展</h3>
+                            <div id="res-career" class="prose prose-slate text-slate-600 leading-relaxed"></div>
+                        </section>
+
+                         <section>
+                            <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center"><span class="w-1.5 h-6 bg-pink-500 mr-3 rounded-full"></span>恋爱关系</h3>
+                            <div id="res-love" class="prose prose-slate text-slate-600 leading-relaxed"></div>
+                        </section>
+                    </div>
+
+                    <div class="lg:col-span-4 space-y-8">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-24">
+                            <h3 class="font-bold text-gray-900 mb-6 text-xs uppercase tracking-widest">构成分析</h3>
+                            <div id="chart-container" class="space-y-6"></div>
+                            
+                            <div class="mt-8 pt-8 border-t border-gray-100">
+                                <h3 class="font-bold text-slate-900 mb-3 text-sm">给 <span id="res-subtype-code"></span> 的建议</h3>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <p id="res-advice" class="text-sm text-slate-600 leading-relaxed italic"></p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="app.resetProgress(); location.reload()" class="mt-6 w-full py-3 text-sm font-bold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors cursor-pointer">重新测试</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- 1. 题库数据 ---
+        // 为了确保计算精度，我们保留 d 属性。 Likert 逻辑：+3 到 -3
+        const questionsDB = [
+            { t: "你经常主动结交新朋友。", d: 'E' },
+            { t: "相比于简单直接的想法，复杂新颖的想法更能让你兴奋。", d: 'N' },
+            { t: "你通常更容易被情感共鸣说服，而不是事实论据。", d: 'F' },
+            { t: "你的生活和工作区域整洁有序。", d: 'J' },
+            { t: "即使在很大压力下，你通常也能保持冷静。", d: 'A' },
+            { t: "你觉得向陌生人推销自己是一件非常困难的事。", d: 'I' },
+            { t: "你总是高效地安排和计划任务，通常在截止日期前很久就完成了。", d: 'J' },
+            { t: "相比于数字或数据，人们的故事和情感更能打动你。", d: 'F' },
+            { t: "你喜欢使用日程表和清单等组织工具。", d: 'J' },
+            { t: "即使是一个小错误也会让你怀疑自己的整体能力和知识。", d: 'Turb' },
+            { t: "你会很自在地走向你觉得有趣的人并开始交谈。", d: 'E' },
+            { t: "你对关于创意作品的各种解读讨论不太感兴趣。", d: 'S' },
+            { t: "在决定行动方案时，你更看重事实而不是人们的感受。", d: 'T' },
+            { t: "你经常让一天顺其自然地度过，没有任何计划。", d: 'P' },
+            { t: "你很少担心自己给别人留下的印象。", d: 'A' },
+            { t: "你喜欢参与团队活动。", d: 'E' },
+            { t: "你喜欢尝试新的、未经测试的方法。", d: 'N' },
+            { t: "你认为顾及他人感受比完全诚实更重要。", d: 'F' },
+            { t: "你主动寻找新的体验和知识领域去探索。", d: 'N' },
+            { t: "你容易担心事情会变得更糟。", d: 'Turb' },
+            { t: "相比于团体活动，你更喜欢独处的爱好。", d: 'I' },
+            { t: "你无法想象自己靠写虚构故事为生。", d: 'S' },
+            { t: "你倾向于决策的高效性，即使这意味着忽视某些情感方面。", d: 'T' },
+            { t: "你更喜欢在放松之前先完成家务或任务。", d: 'J' },
+            { t: "在争论中，你更看重证明自己的观点，而不是维护他人的感受。", d: 'T' },
+            { t: "在社交聚会上，你通常等待别人先来介绍自己。", d: 'I' },
+            { t: "你的情绪变化很快。", d: 'Turb' },
+            { t: "你不容易被情感论证所动摇。", d: 'T' },
+            { t: "你经常在最后关头才做事。", d: 'P' },
+            { t: "你喜欢辩论道德困境。", d: 'N' }, 
+            { t: "你通常喜欢和别人在一起，而不是独处。", d: 'E' },
+            { t: "当讨论变得高度理论化时，你会感到无聊或失去兴趣。", d: 'S' },
+            { t: "当事实与感觉冲突时，你通常会听从内心的声音。", d: 'F' },
+            { t: "你发现很难维持一个持续的工作或学习时间表。", d: 'P' },
+            { t: "你很少怀疑自己做出的选择。", d: 'A' },
+            { t: "你的朋友会形容你活泼外向。", d: 'E' },
+            { t: "你被各种形式的创意表达所吸引，比如写作。", d: 'N' },
+            { t: "你通常基于客观事实而不是情感印象来做选择。", d: 'T' },
+            { t: "你喜欢为每一天列一个待办事项清单。", d: 'J' },
+            { t: "你很少感到不安全。", d: 'A' },
+            { t: "你回避打电话。", d: 'I' },
+            { t: "你喜欢探索不熟悉的想法和观点。", d: 'N' },
+            { t: "你可以很容易地与刚认识的人建立联系。", d: 'E' },
+            { t: "如果计划被打断，你的首要任务是尽快回到正轨。", d: 'J' },
+            { t: "你仍然为很久以前犯的错误感到困扰。", d: 'Turb' },
+            { t: "你对讨论关于未来世界会是什么样子的理论不太感兴趣。", d: 'S' },
+            { t: "你的情绪控制你，多于你控制它们。", d: 'Turb' },
+            { t: "做决定时，你更关注受影响的人的感受，而不是什么最符合逻辑或效率。", d: 'F' },
+            { t: "你的工作风格更接近于突发的能量爆发，而不是有组织和持续的努力。", d: 'P' },
+            { t: "当有人高度评价你时，你会想他们多久之后会对你感到失望。", d: 'Turb' },
+            { t: "你会喜欢一份大部分时间需要独自工作的职业。", d: 'I' },
+            { t: "你认为思考抽象的哲学问题是浪费时间。", d: 'S' },
+            { t: "相比于安静私密的地方，你更喜欢繁忙热闹的氛围。", d: 'E' },
+            { t: "如果一个决定感觉是对的，你通常会直接行动，不需要进一步证明。", d: 'F' },
+            { t: "你经常感到不堪重负。", d: 'Turb' },
+            { t: "你有条不紊地完成事情，不跳过任何步骤。", d: 'J' },
+            { t: "你更喜欢需要你想出创造性解决方案的任务，而不是遵循具体步骤的任务。", d: 'N' },
+            { t: "做选择时，你更倾向于依赖情感直觉而不是逻辑推理。", d: 'F' },
+            { t: "你在截止日期前总是很挣扎。", d: 'P' },
+            { t: "你有信心事情会朝着对你有利的方向发展。", d: 'A' }
+        ];
+
+        // --- 2. 核心逻辑 ---
+        const app = {
+            // 分数存储：rawScores 用于存储每个维度的累积得分
+            // E/I, N/S, T/F, J/P, A/Turb
+            rawScores: { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0, A:0, Turb:0 },
+            currentIdx: 0,
+            
+            init: function() {
+                // 检查 localStorage
+                const savedData = localStorage.getItem('nexus_type_progress');
+                if (savedData) {
+                    const parsed = JSON.parse(savedData);
+                    if (parsed.currentIdx > 0 && parsed.currentIdx < 60) {
+                        this.rawScores = parsed.rawScores;
+                        this.currentIdx = parsed.currentIdx;
+                        
+                        // 显示继续提示
+                        document.getElementById('continue-prompt').classList.remove('hidden');
+                        document.getElementById('btn-continue').classList.remove('hidden');
+                        document.getElementById('btn-continue').classList.add('inline-flex');
+                        document.getElementById('saved-idx').innerText = parsed.currentIdx;
+                        document.getElementById('btn-start-text').innerText = "重新开始";
+                        document.getElementById('reset-btn').classList.remove('hidden');
+                    }
+                }
+            },
+
+            start: function(resume = false) {
+                if (!resume) {
+                    // 重置
+                    this.rawScores = { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0, A:0, Turb:0 };
+                    this.currentIdx = 0;
+                    localStorage.removeItem('nexus_type_progress');
+                }
+                
+                document.getElementById('landing-page').classList.add('hidden');
+                document.getElementById('quiz-page').classList.remove('hidden');
+                document.getElementById('quiz-page').classList.add('fade-in');
+                this.renderQuestion(false); // false means no animation for first render
+            },
+
+            resetProgress: function() {
+                localStorage.removeItem('nexus_type_progress');
+                location.reload();
+            },
+
+            renderQuestion: function(animate = true) {
+                const qTextEl = document.getElementById('q-text');
+                const cardEl = document.getElementById('question-card');
+                
+                // 如果需要动画 (Slide Effect)
+                if (animate) {
+                    // 1. 添加淡出+左移 Class
+                    qTextEl.classList.add('slide-out');
+                    
+                    setTimeout(() => {
+                        // 2. 更新内容
+                        this.updateDOM();
+                        
+                        // 3. 瞬间移到右侧起点 (slide-in-start) 并移除 slide-out
+                        qTextEl.classList.remove('slide-out');
+                        qTextEl.classList.add('slide-in-start');
+                        
+                        // 4. 强制重绘 (Reflow)
+                        void qTextEl.offsetWidth;
+                        
+                        // 5. 移到终点 (slide-in-end)
+                        qTextEl.classList.remove('slide-in-start');
+                        qTextEl.classList.add('slide-in-end');
+                        
+                        // 6. 清理动画类
+                        setTimeout(() => {
+                            qTextEl.classList.remove('slide-in-end');
+                        }, 300);
+                        
+                    }, 300);
+                } else {
+                    this.updateDOM();
+                }
+            },
+            
+            updateDOM: function() {
+                const q = questionsDB[this.currentIdx];
+                document.getElementById('q-text').innerText = q.t;
+                document.getElementById('q-current').innerText = this.currentIdx + 1;
+                document.getElementById('progress-bar').style.width = `${((this.currentIdx)/60)*100}%`;
+                
+                // 移除所有按钮的选中状态
+                document.querySelectorAll('.likert-btn').forEach(btn => btn.classList.remove('selected'));
+            },
+
+            // Likert 评分: val 从 +3 (同意) 到 -3 (不同意)
+            answer: function(val) {
+                // UI 反馈
+                const btns = document.querySelectorAll('.likert-btn');
+                // 找到对应的按钮添加选中样式 (简单处理，根据value映射索引不太好做，直接点击时触发UI变色即可，这里做的是即时跳转)
+                // 实际上 Likert 最好的体验是点一下就走，或者点一下变色然后延迟走。为了流畅度，我们点一下变色+延迟。
+                
+                // 逻辑处理
+                const q = questionsDB[this.currentIdx];
+                const map = {
+                    'E': 'I', 'I': 'E',
+                    'S': 'N', 'N': 'S',
+                    'T': 'F', 'F': 'T', 
+                    'J': 'P', 'P': 'J',
+                    'A': 'Turb', 'Turb': 'A'
+                };
+
+                let target = q.d;
+                // 分数计算逻辑：
+                // 如果 val > 0 (同意)：给 q.d 加分 (分值为 val)
+                // 如果 val < 0 (不同意)：给 map[q.d] 加分 (分值为 abs(val))
+                // 如果 val = 0：不加分 (或两边各加0.5? 暂不加分)
+                
+                if (val > 0) {
+                    this.rawScores[target] += val;
+                } else if (val < 0) {
+                    this.rawScores[map[target]] += Math.abs(val);
+                }
+
+                // 保存进度
+                this.currentIdx++;
+                localStorage.setItem('nexus_type_progress', JSON.stringify({
+                    currentIdx: this.currentIdx,
+                    rawScores: this.rawScores
+                }));
+
+                if (this.currentIdx < 60) {
+                    this.renderQuestion(true);
+                } else {
+                    this.startLoadingProcess();
+                }
+            },
+
+            // 增加仪式感加载页
+            startLoadingProcess: function() {
+                document.getElementById('quiz-page').classList.add('hidden');
+                const loadingPage = document.getElementById('loading-page');
+                loadingPage.classList.remove('hidden');
+                
+                const texts = ["正在连接人格数据库...", "分析认知维度...", "计算A/T策略倾向...", "生成最终报告..."];
+                let step = 0;
+                
+                const interval = setInterval(() => {
+                    if(step < texts.length) {
+                        document.getElementById('loading-text').innerText = texts[step];
+                        step++;
+                    }
+                }, 700);
+
+                // 3秒后显示结果
+                setTimeout(() => {
+                    clearInterval(interval);
+                    loadingPage.classList.add('hidden');
+                    // 清除进度缓存
+                    localStorage.removeItem('nexus_type_progress');
+                    this.showResult();
+                }, 3000);
+            },
+
+            calculateResult: function() {
+                const s = this.rawScores;
+                // 计算每个维度的主导方
+                const type = [
+                    s.E >= s.I ? 'E' : 'I',
+                    s.N >= s.S ? 'N' : 'S',
+                    s.T >= s.F ? 'T' : 'F',
+                    s.J >= s.P ? 'J' : 'P'
+                ].join('');
+                const subtype = s.A >= s.Turb ? 'A' : 'T';
+                
+                // 计算百分比供图表使用
+                // 防止 0/0
+                const calcPct = (v1, v2) => {
+                    const total = v1 + v2;
+                    if (total === 0) return 50;
+                    return Math.round((v1 / total) * 100);
+                };
+
+                return { 
+                    type, 
+                    subtype, 
+                    fullCode: `${type}-${subtype}`, 
+                    pct: {
+                        E: calcPct(s.E, s.I), I: calcPct(s.I, s.E),
+                        N: calcPct(s.N, s.S), S: calcPct(s.S, s.N),
+                        T: calcPct(s.T, s.F), F: calcPct(s.F, s.T),
+                        J: calcPct(s.J, s.P), P: calcPct(s.P, s.J),
+                        A: calcPct(s.A, s.Turb), Turb: calcPct(s.Turb, s.A),
+                    }
+                };
+            },
+
+            showResult: function() {
+                const res = this.calculateResult();
+                const data = ROLES_DATA[res.type] || ROLES_DATA['INTJ']; 
+
+                document.getElementById('result-page').classList.remove('hidden');
+                document.getElementById('result-page').classList.add('fade-in');
+                window.scrollTo(0, 0);
+
+                // 渲染头部颜色
+                const header = document.getElementById('result-header');
+                const colorMap = {
+                    '分析家': '#5b21b6', 
+                    '外交家': '#065f46', 
+                    '守护者': '#075985', 
+                    '探险家': '#ca8a04'  
+                };
+                header.style.backgroundColor = colorMap[data.role];
+                
+                // 填充文本
+                document.getElementById('res-code').innerText = res.fullCode;
+                document.getElementById('res-name').innerText = data.name;
+                document.getElementById('res-role-badge').innerText = data.role;
+                document.getElementById('res-identity').innerText = res.subtype === 'A' ? '自信型 (Assertive)' : '动荡型 (Turbulent)';
+                document.getElementById('res-quote').innerText = data.quote;
+                document.getElementById('res-author').innerText = data.author;
+                document.getElementById('res-intro').innerHTML = data.intro;
+                document.getElementById('res-career').innerHTML = data.career;
+                document.getElementById('res-love').innerHTML = data.love;
+                document.getElementById('res-strengths').innerHTML = data.strengths.map(s => `<li>${s}</li>`).join('');
+                document.getElementById('res-weaknesses').innerHTML = data.weaknesses.map(w => `<li>${w}</li>`).join('');
+                document.getElementById('res-subtype-code').innerText = res.fullCode;
+                document.getElementById('res-advice').innerText = data.advice[res.subtype];
+
+                // 渲染图表
+                this.renderCharts(res.pct);
+            },
+
+            renderCharts: function(p) {
+                const container = document.getElementById('chart-container');
+                // 数据结构: 左侧标签, 右侧标签, 左侧值, 右侧值, 颜色
+                const rows = [
+                    { l:'外向 (E)', r:'内向 (I)', lv: p.E, rv: p.I, c:'bg-indigo-500' },
+                    { l:'直觉 (N)', r:'实感 (S)', lv: p.N, rv: p.S, c:'bg-yellow-500' },
+                    { l:'理性 (T)', r:'感受 (F)', lv: p.T, rv: p.F, c:'bg-cyan-500' },
+                    { l:'判断 (J)', r:'展望 (P)', lv: p.J, rv: p.P, c:'bg-purple-500' },
+                    { l:'坚决 (A)', r:'动荡 (T)', lv: p.A, rv: p.Turb, c:'bg-pink-500' }
+                ];
+
+                let html = '';
+                rows.forEach(row => {
+                    html += `
+                        <div class="mb-5">
+                            <div class="flex justify-between text-xs font-bold text-gray-500 mb-1.5 uppercase">
+                                <span>${row.l}</span>
+                                <span>${row.r}</span>
+                            </div>
+                            <div class="relative h-3 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
+                                <div class="${row.c} h-full transition-all duration-1000 flex items-center justify-end pr-1" style="width: ${row.lv}%"></div>
+                                <div class="bg-gray-300 h-full transition-all duration-1000" style="width: ${row.rv}%"></div>
+                                <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white opacity-50 transform -translate-x-1/2"></div>
+                            </div>
+                             <div class="flex justify-between text-xs font-medium text-gray-400 mt-1">
+                                <span>${row.lv}%</span>
+                                <span>${row.rv}%</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        };
+
+        // 初始化
+        app.init();
+
+        // --- 3. 完整数据库 (保持不变) ---
+        const ROLES_DATA = {
+            "INTJ": { role: "分析家", name: "建筑师", quote: "孤独的顶峰自有其风景，思想是唯一的阶梯。", author: "尼采", intro: "<p>作为建筑师 (INTJ)，你是极少数能将梦想与逻辑完美结合的人。你对世界充满了好奇，但这种好奇不是漫无目的的，而是为了建立体系、优化结构。</p>", strengths: ["高瞻远瞩的战略思维", "极其独立与自信", "能从混乱中重组秩序", "终身学习者"], weaknesses: ["可能显得傲慢", "过度分析情感", "对低效缺乏耐心", "过于完美主义"], career: "<p>你适合需要高度智力挑战和独立性的工作。你是天生的系统架构师、战略规划师或科学家。</p>", love: "<p>在爱情中，你寻找的是智力上的伴侣。你不在乎表面的浪漫，而在乎深层的理解。</p>", advice: { "A": "自信让你无往不利，但请记得倾听。", "T": "接受'足够好'也是一种智慧。" } },
+            "INTP": { role: "分析家", name: "逻辑学家", quote: "我思故我在。", author: "笛卡尔", intro: "<p>逻辑学家 (INTP) 是思想界的探索者。你对宇宙万物的底层逻辑有着不可抑制的渴望。</p>", strengths: ["极具创造力", "客观公正", "思想开放", "逻辑严密"], weaknesses: ["容易陷入思维瘫痪", "情感迟钝", "自我怀疑", "难以遵守死板规则"], career: "<p>程序员、数学家、哲学家或数据分析师是你的理想职业。</p>", love: "<p>你渴望一个能听懂你疯狂想法的伴侣。</p>", advice: { "A": "试着将理论转化为现实成果。", "T": "不要害怕犯错，错误是数据的来源。" } },
+            "ENTJ": { role: "分析家", name: "指挥官", quote: "要么找到路，要么造一条路。", author: "汉尼拔", intro: "<p>指挥官 (ENTJ) 是天生的领导者。你的字典里没有'不可能'。</p>", strengths: ["极高效率", "意志坚定", "战略眼光", "魅力型领袖"], weaknesses: ["冷酷无情", "傲慢", "控制欲强", "忽视情感"], career: "<p>CEO、创业者、高级顾问或军官。</p>", love: "<p>你需要一个势均力敌的伴侣。</p>", advice: { "A": "培养同理心会让你成为更伟大的领袖。", "T": "承认脆弱是成熟的表现。" } },
+            "ENTP": { role: "分析家", name: "辩论家", quote: "跟随寻求真理的人。", author: "哈维尔", intro: "<p>辩论家 (ENTP) 是思想的破坏者和重建者。</p>", strengths: ["知识渊博", "思维敏捷", "创新精神", "极具魅力"], weaknesses: ["喜欢争吵", "缺乏细节", "容易厌倦", "不顾感受"], career: "<p>律师、创业者、营销总监或咨询师。</p>", love: "<p>你需要一个能跟上你思维跳跃的伴侣。</p>", advice: { "A": "学会挑选战场。", "T": "试着把一个项目坚持到底。" } },
+            "INFJ": { role: "外交家", name: "提倡者", quote: "以温和的方式，你可以撼动世界。", author: "甘地", intro: "<p>提倡者 (INFJ) 是最罕见的理想主义者。你外表安静，内心却燃烧着火焰。</p>", strengths: ["深刻洞察力", "利他主义", "坚定信念", "富有创造力"], weaknesses: ["极易职业倦怠", "对批评敏感", "过于隐私", "完美主义"], career: "<p>心理咨询师、作家、非营利组织领导者。</p>", love: "<p>你寻找的是灵魂伴侣。</p>", advice: { "A": "设立边界是必要的。", "T": "不要让别人的情绪淹没你。" } },
+            "INFP": { role: "外交家", name: "调停者", quote: "并非所有流浪者都迷失了方向。", author: "托尔金", intro: "<p>调停者 (INFP) 是真正的诗人。你透过玫瑰色的眼镜看世界。</p>", strengths: ["同理心", "想象力", "思想开放", "激情"], weaknesses: ["不切实际", "自我牺牲", "难处理数据", "易受伤"], career: "<p>艺术家、作家、设计师或社工。</p>", love: "<p>你是无可救药的浪漫主义者。</p>", advice: { "A": "有时需要一点现实感。", "T": "相信你的直觉。" } },
+            "ENFJ": { role: "外交家", name: "主人公", quote: "我是我命运的主宰。", author: "威廉·亨利", intro: "<p>主人公 (ENFJ) 是天生的导师。你真心相信他人的潜能。</p>", strengths: ["魅力", "可靠", "利他", "领袖"], weaknesses: ["过于理想化", "过度无私", "敏感", "犹豫"], career: "<p>教师、人力资源、公关或政治家。</p>", love: "<p>你渴望和谐，并会为了伴侣付出一切。</p>", advice: { "A": "不要试图控制一切。", "T": "学会对消耗你的人说不。" } },
+            "ENFP": { role: "外交家", name: "竞选者", quote: "没有事情是无关紧要的。", author: "伍尔夫", intro: "<p>竞选者 (ENFP) 是自由的灵魂。你不仅是派对焦点，更是深刻的思想者。</p>", strengths: ["好奇", "热情", "沟通", "适应力"], weaknesses: ["难专注", "过度思考", "情绪化", "缺纪律"], career: "<p>记者、策划、创意总监。</p>", love: "<p>你希望关系是一场冒险。</p>", advice: { "A": "不要放弃真正重要的人。", "T": "学会专注。" } },
+            "ISTJ": { role: "守护者", name: "物流师", quote: "无法衡量就无法管理。", author: "德鲁克", intro: "<p>物流师 (ISTJ) 是社会的基石。你正直、务实、可靠。</p>", strengths: ["诚实", "责任感", "冷静", "井井有条"], weaknesses: ["固执", "不敏感", "墨守成规", "自责"], career: "<p>会计、审计、法律或数据管理。</p>", love: "<p>你是最忠诚的伴侣。</p>", advice: { "A": "效率有时来自创新。", "T": "不要把所有责任揽在身上。" } },
+            "ISFJ": { role: "守护者", name: "守卫者", quote: "爱始于家庭。", author: "特蕾莎修女", intro: "<p>守卫者 (ISFJ) 是真正的利他主义者。你安静地保护着世界。</p>", strengths: ["支持", "可靠", "观察力", "勤奋"], weaknesses: ["过于谦虚", "压抑情感", "易被利用", "抗拒改变"], career: "<p>护士、行政、教师或客服。</p>", love: "<p>你全心全意投入家庭。</p>", advice: { "A": "你的付出值得被看见。", "T": "不要把别人的问题当负担。" } },
+            "ESTJ": { role: "守护者", name: "总经理", quote: "管理就是把平凡人组织起来。", author: "德鲁克", intro: "<p>总经理 (ESTJ) 是传统的维护者。你相信法律和秩序。</p>", strengths: ["敬业", "意志坚强", "忠诚", "组织力"], weaknesses: ["僵化", "难表达情感", "关注地位", "缺乏宽容"], career: "<p>高管、法官、项目经理。</p>", love: "<p>你希望家庭生活稳定有序。</p>", advice: { "A": "放松一点。", "T": "接受不可控因素。" } },
+            "ESFJ": { role: "守护者", name: "执政官", quote: "关怀是最伟大的礼物。", author: "温弗瑞", intro: "<p>执政官 (ESFJ) 是受欢迎的东道主。你是社交圈的粘合剂。</p>", strengths: ["实践力", "热心", "社交", "体贴"], weaknesses: ["在意评价", "缺乏创新", "依赖", "回避冲突"], career: "<p>公关、活动管理、医疗或教育。</p>", love: "<p>你渴望承诺和认可。</p>", advice: { "A": "你的价值源于内心。", "T": "和谐不是靠忍让换来的。" } },
+            "ISTP": { role: "探险家", name: "鉴赏家", quote: "我想知道世界如何运作。", author: "爱因斯坦", intro: "<p>鉴赏家 (ISTP) 是天生的工匠。你用理性的好奇心观察世界。</p>", strengths: ["乐观", "创造力", "理性", "危机处理"], weaknesses: ["难预测", "情感迟钝", "易厌倦", "不喜承诺"], career: "<p>工程师、机械师、飞行员。</p>", love: "<p>你需要空间。</p>", advice: { "A": "对他人的情感多点耐心。", "T": "你比想象的更棒。" } },
+            "ISFP": { role: "探险家", name: "探险家", quote: "世界很大，我想去看看。", author: "佚名", intro: "<p>探险家 (ISFP) 是真正的艺术家。你用生活本身在创作。</p>", strengths: ["魅力", "想象力", "激情", "艺术感"], weaknesses: ["过于独立", "压力易崩", "缺规划", "竞争心"], career: "<p>设计、摄影、音乐或自由职业。</p>", love: "<p>你感情丰富但深藏不露。</p>", advice: { "A": "勇敢展示才华。", "T": "建立内在安全感。" } },
+            "ESTP": { role: "探险家", name: "企业家", quote: "生命是一场大胆的冒险。", author: "海伦凯勒", intro: "<p>企业家 (ESTP) 是行动的化身。你喜欢冒险和快节奏。</p>", strengths: ["直接", "理性", "洞察力", "社交"], weaknesses: ["不敏感", "缺耐心", "冲动", "忽视大局"], career: "<p>销售、创业、股票经纪人。</p>", love: "<p>你喜欢带伴侣体验新事物。</p>", advice: { "A": "行动前多思考一秒。", "T": "不要只靠刺激逃避不安。" } },
+            "ESFP": { role: "探险家", name: "表演者", quote: "我们都在阴沟里，但仍有人仰望星空。", author: "王尔德", intro: "<p>表演者 (ESFP) 是天生的艺人。哪里都是舞台。</p>", strengths: ["创新", "审美", "敏锐", "乐天"], weaknesses: ["难专注", "敏感", "缺规划", "享乐"], career: "<p>演员、导游、主持或销售。</p>", love: "<p>你希望恋爱充满乐趣。</p>", advice: { "A": "学会在平淡中找意义。", "T": "多发展内在深度。" } }
+        };
+    </script>
+</body>
+</html>

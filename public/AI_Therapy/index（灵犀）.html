@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>灵犀 · 治愈系</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-warm: #fdfcfb; --bg-warm-dark: #e2d1c3; --text-brown: #5a4a42; --text-light: #8d7b72; --accent-green: #a7c4bc; --accent-orange: #f3b07c; --accent-pink: #d4a5b3; }
+        body { background: linear-gradient(135deg, var(--bg-warm) 0%, var(--bg-warm-dark) 100%); color: var(--text-brown); font-family: 'Noto Serif SC', serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; }
+        #soul-core { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fffcf5, #e6d5c8); box-shadow: inset 0 0 20px rgba(255,255,255,0.9), 0 15px 35px rgba(141, 123, 114, 0.2); border: 4px solid rgba(255,255,255,0.5); cursor: pointer; position: relative; z-index: 10; display: flex; align-items: center; justify-content: center; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); -webkit-tap-highlight-color: transparent; }
+        .state-recording #soul-core { transform: scale(1.1); border-color: var(--accent-green); box-shadow: 0 0 50px rgba(167, 196, 188, 0.5); }
+        .state-thinking #soul-core { border-color: var(--accent-orange); box-shadow: 0 0 40px rgba(243, 176, 124, 0.4); animation: breathe 2s infinite ease-in-out; }
+        .state-speaking #soul-core { border-color: var(--accent-pink); box-shadow: 0 0 50px rgba(212, 165, 179, 0.5); animation: pulse-speaking 1.5s infinite ease-in-out; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); opacity: 0.95; } 50% { transform: scale(1.05); opacity: 1; } }
+        @keyframes pulse-speaking { 0% { transform: scale(1); border-width: 4px; } 50% { transform: scale(1.08); border-width: 2px; } 100% { transform: scale(1); border-width: 4px; } }
+        .hint-text { letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.85rem; color: var(--text-light); margin-top: 2.5rem; opacity: 0.8; transition: all 0.3s; }
+    </style>
+</head>
+<body x-data="healingApp()" x-init="init()" :class="'state-' + state">
+    <div class="absolute top-16 text-center animate-fade-in">
+        <h1 class="text-6xl font-light tracking-[0.2em] text-[#5a4a42] opacity-90 mb-3">灵 犀</h1>
+        <p class="text-xs text-[#8d7b72] tracking-[0.6em] uppercase">Always Here For You</p>
+    </div>
+    
+    <div class="relative group">
+        <div id="soul-core" @mousedown="startRecord" @mouseup="stopRecord" @mouseleave="stopRecord" @touchstart.prevent="startRecord" @touchend.prevent="stopRecord">
+             <div x-show="state === 'idle'" class="text-[#8d7b72] opacity-40"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg></div>
+             <div x-show="state === 'recording'" class="w-3 h-3 bg-[#a7c4bc] rounded-full animate-ping"></div>
+             <div x-show="state === 'thinking'" class="text-[#f3b07c] text-sm font-bold tracking-[0.2em]">思考中</div>
+        </div>
+        <div x-show="state === 'recording'" class="absolute inset-0 rounded-full border border-[#a7c4bc] animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite] -z-10 opacity-30"></div>
+    </div>
+
+    <div class="hint-text" x-text="hintText"></div>
+    
+    <div x-show="showPlayBtn" class="mt-4">
+        <button @click="retryPlay" class="px-6 py-2 bg-[#d4a5b3] text-white rounded-full text-sm tracking-widest shadow-lg hover:bg-[#c08fa0] transition-colors">
+            点击播放声音
+        </button>
+    </div>
+
+    <div class="absolute bottom-20 w-full px-6 md:px-20 text-center">
+        <p class="text-xl md:text-2xl text-[#5a4a42] font-medium leading-relaxed transition-all duration-300 min-h-[4rem] flex items-center justify-center" style="text-shadow: 0 2px 10px rgba(255,255,255,0.8);" x-text="subtitle"></p>
+    </div>
+
+    <script>
+        function healingApp() {
+            return {
+                socket: null,
+                state: 'idle',
+                subtitle: '',
+                hintText: '连接中...',
+                mediaRecorder: null,
+                audioChunks: [],
+                showPlayBtn: false,
+                lastAudio: null,
+                
+                init() {
+                    // 允许 Polling 降级，解决连接问题
+                    this.socket = io('http://127.0.0.1:5566', { transports: ['polling', 'websocket'], reconnection: true });
+                    this.socket.on('connect', () => { console.log("✅ 已连接"); this.hintText = '按住 · 倾诉心声'; this.state = 'idle'; });
+                    this.socket.on('disconnect', () => { this.hintText = '连接断开...'; });
+                    this.socket.on('ui_feedback', (data) => {
+                        if (data.text) this.subtitle = data.text;
+                        if (data.state) { this.state = data.state; this.updateHint(); }
+                    });
+                    this.socket.on('play_audio', (data) => { this.playAudio(data.audio); });
+                },
+
+                updateHint() {
+                    switch(this.state) {
+                        case 'idle': this.hintText = '按住 · 倾诉心声'; break;
+                        case 'recording': this.hintText = '正在聆听...'; break;
+                        case 'thinking': this.hintText = '正在用心感受...'; break;
+                        case 'speaking': this.hintText = '点击球体 · 停止播放'; break;
+                    }
+                },
+
+                async startRecord() {
+                    this.showPlayBtn = false;
+                    if (this.state === 'speaking') { this.stopAudio(); return; }
+                    if (this.state === 'thinking') return;
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        this.mediaRecorder = new MediaRecorder(stream);
+                        this.audioChunks = [];
+                        this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
+                        this.mediaRecorder.onstop = () => {
+                            const blob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                            const reader = new FileReader();
+                            reader.readAsDataURL(blob);
+                            reader.onloadend = () => {
+                                const base64String = reader.result.split(',')[1];
+                                this.socket.emit('submit_audio', { audio: base64String });
+                            };
+                        };
+                        this.mediaRecorder.start();
+                        this.state = 'recording';
+                        this.subtitle = ''; 
+                        this.updateHint();
+                    } catch (e) { alert("麦克风权限错误"); }
+                },
+
+                stopRecord() {
+                    if (this.state === 'recording' && this.mediaRecorder) {
+                        this.mediaRecorder.stop();
+                        this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                        this.state = 'thinking';
+                        this.updateHint();
+                    }
+                },
+
+                playAudio(base64) {
+                    this.state = 'speaking';
+                    this.updateHint();
+                    this.lastAudio = base64;
+                    const audio = new Audio("data:audio/mp3;base64," + base64);
+                    window.currentAudio = audio;
+                    audio.onended = () => { this.state = 'idle'; this.subtitle = ''; this.updateHint(); };
+                    audio.play().catch(e => {
+                        console.warn("自动播放被拦截:", e);
+                        this.state = 'idle';
+                        this.subtitle = '点击下方按钮播放声音';
+                        this.showPlayBtn = true;
+                    });
+                },
+                
+                retryPlay() {
+                    if (this.lastAudio) { this.playAudio(this.lastAudio); this.showPlayBtn = false; }
+                },
+                
+                stopAudio() {
+                    if (window.currentAudio) { window.currentAudio.pause(); window.currentAudio = null; }
+                    this.state = 'idle';
+                    this.updateHint();
+                }
+            }
+        }
+    </script>
+</body>
+</html>

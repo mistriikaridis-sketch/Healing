@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNOW YOUR SELF | 你的内心秩序</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 1. 核心变量 (Design Tokens) --- */
+        :root {
+            --bg-color: #F9F8F4; /* 温暖的米纸色 */
+            --text-primary: #111111; /* 极深的炭黑 */
+            --text-secondary: #555555; /* 中灰 */
+            --text-meta: #888888; /* 浅灰 */
+            --accent-gold: #C5A059; /* 暗金 */
+            --line-color: #E0E0E0; /* 分割线颜色 */
+            
+            --font-display: 'Playfair Display', serif; /* 英文衬线标题 */
+            --font-body: 'Noto Serif SC', serif; /* 中文宋体 */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.8;
+            padding: 80px 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* --- 2. 头部设计 (Header) --- */
+        header {
+            text-align: center;
+            margin-bottom: 100px;
+            animation: fadeIn 1.2s ease;
+        }
+
+        h1 {
+            font-family: var(--font-display), serif;
+            font-size: 4rem; 
+            font-weight: 700;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+            color: #000;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 60px; /* 两个选项时增加一点间距，更显大气 */
+            font-family: var(--font-display); 
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-meta);
+        }
+
+        .nav-links span { 
+            cursor: pointer; 
+            position: relative;
+            padding-bottom: 5px;
+            transition: 0.3s; 
+        }
+        
+        .nav-links span::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 1px;
+            bottom: 0;
+            left: 0;
+            background-color: #000;
+            transition: width 0.3s;
+        }
+        
+        .nav-links span:hover { color: #000; }
+        .nav-links span:hover::after { width: 100%; }
+        
+        .nav-links span.active { color: #000; font-weight: 700; }
+        .nav-links span.active::after { width: 100%; }
+
+        /* --- 3. 每日金句 (Daily Quote) --- */
+        .quote-section {
+            text-align: center;
+            margin-bottom: 100px;
+            padding: 0 5%;
+            border-top: 1px solid var(--line-color);
+            border-bottom: 1px solid var(--line-color);
+            padding: 40px 0;
+        }
+        .quote-cn { font-size: 1.1rem; margin-bottom: 8px; color: var(--text-primary); }
+        .quote-en { font-family: var(--font-display); color: var(--text-meta); font-style: italic; font-size: 0.95rem;}
+
+        /* --- 4. 记录区域 (Write Section) --- */
+        #writeSection { display: block; opacity: 1; transition: opacity 0.5s; max-width: 700px; margin: 0 auto; }
+        
+        .input-group {
+            margin-bottom: 70px;
+        }
+
+        .input-label {
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-meta);
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .input-title {
+            font-size: 1.6rem;
+            font-weight: 400; 
+            margin-bottom: 25px;
+            color: var(--text-primary);
+        }
+
+        textarea {
+            width: 100%;
+            border: none;
+            background: transparent;
+            font-family: var(--font-body);
+            font-size: 1.15rem;
+            color: #333;
+            min-height: 100px;
+            resize: none;
+            padding: 0;
+            background-image: linear-gradient(transparent 96%, var(--line-color) 96%); 
+            background-size: 100% 36px; 
+            line-height: 36px;
+        }
+        textarea::placeholder { color: #CCC; font-weight: 300; font-style: italic;}
+        textarea:focus { background-image: linear-gradient(transparent 96%, #999 96%); } 
+
+        /* 情绪选择器 */
+        .mood-selector { display: flex; gap: 30px; margin-top: 20px; font-family: var(--font-display); }
+        .mood-text-btn {
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-meta);
+            position: relative;
+            transition: 0.3s;
+            text-transform: capitalize;
+            font-style: italic;
+        }
+        .mood-text-btn:hover { color: #000; }
+        .mood-text-btn.selected { color: #000; font-weight: 700; transform: scale(1.1); }
+        .mood-text-btn.selected::before { content: '•'; position: absolute; left: -15px; color: var(--text-primary); }
+
+        /* 提交按钮 */
+        .action-btn {
+            background: transparent;
+            border: 1px solid #000;
+            color: #000;
+            padding: 18px 60px;
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 60px auto 0;
+        }
+        .action-btn:hover { background-color: #000; color: #fff; }
+
+        /* --- 5. 历史列表区域 (History Section) --- */
+        #historySection { display: none; opacity: 0; transition: opacity 0.5s; max-width: 800px; margin: 0 auto; }
+
+        .history-list { display: flex; flex-direction: column; gap: 0; }
+
+        /* 纯文字卡片样式 */
+        .history-card {
+            padding: 50px 0;
+            border-bottom: 1px solid var(--line-color);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .history-card:first-child { padding-top: 0; }
+
+        .card-meta {
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-meta);
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 2.8rem; 
+            font-weight: 400;
+            margin-bottom: 25px;
+            color: #000;
+            line-height: 1.1;
+        }
+
+        .card-preview {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+            line-height: 1.8;
+            max-width: 90%;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-weight: 300;
+        }
+
+        .card-link {
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            text-decoration: underline;
+            text-underline-offset: 6px;
+            color: #000;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: color 0.3s;
+        }
+        .card-link:hover { color: var(--text-meta); }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 2.8rem; }
+            body { padding: 40px 20px; }
+            .card-title { font-size: 2.2rem; }
+            .nav-links { gap: 30px; }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .empty-state { text-align: center; color: var(--text-meta); padding: 60px; letter-spacing: 1px; font-family: var(--font-display); font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Know Your Self</h1>
+        <nav class="nav-links">
+            <span id="tabRecord" class="active" onclick="switchTab('record')">Deep Reads / 今日书写</span>
+            <span id="tabHistory" onclick="switchTab('history')">Topics / 过往篇章</span>
+        </nav>
+    </header>
+
+    <div class="quote-section">
+        <div class="quote-cn" id="quoteCn">...</div>
+        <div class="quote-en" id="quoteEn">...</div>
+    </div>
+
+    <main id="writeSection">
+        <div class="date-header" style="text-align:center; margin-bottom:50px; color:#999; letter-spacing:2px; font-size:0.8rem; font-family:var(--font-display);" id="currentDate"></div>
+
+        <div class="input-group">
+            <span class="input-label">Achievement</span>
+            <div class="input-title">微小成就</div>
+            <textarea id="inputAchievement" placeholder="Type here..."></textarea>
+        </div>
+
+        <div class="input-group">
+            <span class="input-label">Gratitude</span>
+            <div class="input-title">感恩时刻</div>
+            <textarea id="inputGratitude" placeholder="Type here..."></textarea>
+        </div>
+
+        <div class="input-group">
+            <span class="input-label">Mood Check-in</span>
+            <div class="input-title">情绪觉察</div>
+            
+            <div class="mood-selector">
+                <div class="mood-text-btn" data-val="Sunny">Sunny</div>
+                <div class="mood-text-btn" data-val="Cloudy">Cloudy</div>
+                <div class="mood-text-btn" data-val="Rainy">Rainy</div>
+                <div class="mood-text-btn" data-val="Storm">Storm</div>
+                <div class="mood-text-btn" data-val="Calm">Calm</div>
+            </div>
+
+            <textarea id="inputMood" style="margin-top:30px; min-height:80px;" placeholder="Thoughts..."></textarea>
+        </div>
+
+        <button class="action-btn" onclick="saveEntry()">Publish to Self</button>
+    </main>
+
+    <main id="historySection">
+        <div id="historyList" class="history-list">
+            </div>
+    </main>
+
+    <script>
+        // --- 1. 基础配置 ---
+        const quotes = [
+            { cn: "生活如一杯咖啡，先苦后甜，而你早已学会先为自己添一勺温柔的糖。", en: "Life is like coffee, bitter then sweet." },
+            { cn: "在喧嚣的世界中，独处不是隔离，而是精神的回归。", en: "Solitude is the return of the spirit." },
+            { cn: "万物皆有裂痕，那是光照进来的地方。", en: "There is a crack in everything, that's how the light gets in." },
+            { cn: "保持耐心，一切美好的事物都会缓慢而庄严地成熟。", en: "Everything beautiful ripens slowly and solemnly." }
+        ];
+
+        // --- 2. 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 日期
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options).toUpperCase();
+            
+            // 金句
+            const quote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById('quoteCn').textContent = quote.cn;
+            document.getElementById('quoteEn').textContent = quote.en;
+
+            // 情绪文字点击
+            document.querySelectorAll('.mood-text-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mood-text-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+
+            // 渲染历史
+            renderHistory();
+        });
+
+        // --- 3. 页面切换 ---
+        function switchTab(tab) {
+            const writeSec = document.getElementById('writeSection');
+            const histSec = document.getElementById('historySection');
+            const tabRec = document.getElementById('tabRecord');
+            const tabHist = document.getElementById('tabHistory');
+
+            if (tab === 'record') {
+                writeSec.style.display = 'block';
+                setTimeout(() => writeSec.style.opacity = 1, 10);
+                histSec.style.opacity = 0;
+                setTimeout(() => histSec.style.display = 'none', 500);
+                
+                tabRec.classList.add('active');
+                tabHist.classList.remove('active');
+            } else {
+                histSec.style.display = 'block';
+                setTimeout(() => histSec.style.opacity = 1, 10);
+                writeSec.style.opacity = 0;
+                setTimeout(() => writeSec.style.display = 'none', 500);
+                
+                tabHist.classList.add('active');
+                tabRec.classList.remove('active');
+                renderHistory(); 
+            }
+        }
+
+        // --- 4. 保存数据 ---
+        function saveEntry() {
+            const achievement = document.getElementById('inputAchievement').value;
+            const gratitude = document.getElementById('inputGratitude').value;
+            const moodText = document.getElementById('inputMood').value;
+            const moodBtn = document.querySelector('.mood-text-btn.selected');
+            const moodVal = moodBtn ? moodBtn.getAttribute('data-val') : 'Neutral';
+
+            if (!achievement && !gratitude && !moodText) {
+                alert("Please write something to keep the moment.");
+                return;
+            }
+
+            const d = new Date();
+            const dateStr = `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
+
+            const entry = {
+                id: Date.now(),
+                dateStr: dateStr, 
+                achievement: achievement || "No entry",
+                gratitude: gratitude || "No entry",
+                moodText: moodText,
+                moodVal: moodVal.toUpperCase()
+            };
+
+            let history = JSON.parse(localStorage.getItem('inner_peace_history_v2') || "[]");
+            history.unshift(entry);
+            localStorage.setItem('inner_peace_history_v2', JSON.stringify(history));
+
+            // Reset
+            document.getElementById('inputAchievement').value = '';
+            document.getElementById('inputGratitude').value = '';
+            document.getElementById('inputMood').value = '';
+            document.querySelectorAll('.mood-text-btn').forEach(b => b.classList.remove('selected'));
+
+            alert("Published to your inner space.");
+            switchTab('history');
+        }
+
+        // --- 5. 渲染历史 ---
+        function renderHistory() {
+            const listEl = document.getElementById('historyList');
+            const history = JSON.parse(localStorage.getItem('inner_peace_history_v2') || "[]");
+
+            listEl.innerHTML = '';
+
+            if (history.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">No stories yet. Write your first chapter.</div>';
+                return;
+            }
+
+            history.forEach(item => {
+                let fullContent = [];
+                if(item.achievement !== "No entry") fullContent.push(item.achievement);
+                if(item.gratitude !== "No entry") fullContent.push(item.gratitude);
+                if(item.moodText) fullContent.push(item.moodText);
+                
+                const previewText = fullContent.length > 0 ? fullContent.join(' ... ') : "Recorded a moment of silence.";
+
+                const cardHtml = `
+                    <div class="history-card">
+                        <div class="card-meta">HEAL / ${item.dateStr} / ${item.moodVal}</div>
+                        <div class="card-title">Inner Self</div>
+                        <div class="card-preview">${previewText}</div>
+                        <div class="card-link" onclick="alert('🌟 ACHIEVEMENT:\\n${item.achievement}\\n\\n🎋 GRATITUDE:\\n${item.gratitude}\\n\\n☁️ THOUGHTS:\\n${item.moodText || '...' }')">READ THE STORY</div>
+                    </div>
+                `;
+                listEl.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+    </script>
+</body>
+</html>

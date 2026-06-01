@@ -1,0 +1,16 @@
+2026-02-06 15:23:26,853 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5566
+ * Running on http://192.168.3.4:5566
+2026-02-06 15:23:26,854 [INFO] [33mPress CTRL+C to quit[0m
+2026-02-06 15:23:35,400 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:35] "[33mGET / HTTP/1.1[0m" 404 -
+2026-02-06 15:23:35,487 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:35] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-02-06 15:23:36,812 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:36] "[33mGET / HTTP/1.1[0m" 404 -
+2026-02-06 15:23:54,556 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:54] "GET /socket.io/?EIO=4&transport=polling&t=PmnrV_w HTTP/1.1" 200 -
+2026-02-06 15:23:54,807 [INFO] Á¬½Ó TTTkZ0Jj4JMwvotiAAAB
+2026-02-06 15:23:54,811 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:54] "POST /socket.io/?EIO=4&transport=polling&t=PmnrW4_&sid=MXNNyR12htxso1V4AAAA HTTP/1.1" 200 -
+2026-02-06 15:23:54,872 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:54] "GET /socket.io/?EIO=4&transport=polling&t=PmnrW50&sid=MXNNyR12htxso1V4AAAA HTTP/1.1" 200 -
+2026-02-06 15:23:54,878 [INFO] 127.0.0.1 - - [06/Feb/2026 15:23:54] "GET /socket.io/?EIO=4&transport=polling&t=PmnrW9z&sid=MXNNyR12htxso1V4AAAA HTTP/1.1" 200 -
+2026-02-06 15:24:02,726 [ERROR] Éú³ÉÊ§°Ü TTTkZ0Jj4JMwvotiAAAB 'latin-1' codec can't encode characters in position 7-8: ordinal not in range(256)
+2026-02-06 15:24:08,450 [INFO] ¶Ï¿ª TTTkZ0Jj4JMwvotiAAAB
+2026-02-06 15:24:08,451 [INFO] 127.0.0.1 - - [06/Feb/2026 15:24:08] "GET /socket.io/?EIO=4&transport=websocket&sid=MXNNyR12htxso1V4AAAA HTTP/1.1" 200 -

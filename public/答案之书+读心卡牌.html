@@ -1,0 +1,781 @@
+	<!DOCTYPE html>
+
+	<html lang="zh-CN">
+
+	<head>
+
+		<meta charset="UTF-8">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Mind & Wisdom | 最终版</title>
+
+		
+
+		<script src="https://cdn.tailwindcss.com"></script>
+
+		<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+		<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Noto+Serif+SC:wght@300;500;700&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+
+
+
+		<script>
+
+			tailwind.config = {
+
+				theme: {
+
+					extend: {
+
+						colors: { 'paper': '#F9F7F2', 'ink': '#1A1A1A', 'sub': '#888888', 'gold': '#C5A059' },
+
+						fontFamily: { 'serif': ['"Playfair Display"', '"Noto Serif SC"', 'serif'], 'sans': ['"Lato"', 'sans-serif'] },
+
+						boxShadow: { 'deck': '0 25px 50px -12px rgba(0,0,0,0.4)', 'soft': '0 10px 30px rgba(0,0,0,0.1)' }
+
+					}
+
+				}
+
+			}
+
+		</script>
+
+
+
+		<style>
+
+			[x-cloak] { display: none !important; }
+
+			body { background-color: #F9F7F2; color: #1A1A1A; overflow: hidden; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+			
+
+			/* 绝对定位实现无痕切换 */
+
+			.tab-content { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+
+
+			/* 3D 翻转 */
+
+			.perspective-container { perspective: 1200px; }
+
+			.preserve-3d { transform-style: preserve-3d; }
+
+			.backface-hidden { backface-visibility: hidden; }
+
+			.rotate-y-180 { transform: rotateY(180deg); }
+
+			
+
+			/* 牌堆拟真 */
+
+			.deck-stack { position: relative; }
+
+			.deck-stack::before, .deck-stack::after {
+
+				content: ''; position: absolute; width: 100%; height: 100%;
+
+				background: #fff; border: 1px solid #ddd; border-radius: 12px; pointer-events: none;
+
+			}
+
+			.deck-stack::before { top: 3px; left: 2px; z-index: -1; transform: rotate(1deg); }
+
+			.deck-stack::after { top: 6px; left: 4px; z-index: -2; transform: rotate(-1deg); box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+
+
+
+			/* 卡牌纹理 */
+
+			.card-texture {
+
+				background-color: #fff;
+
+				background-image: radial-gradient(#ddd 1px, transparent 1px);
+
+				background-size: 15px 15px;
+
+			}
+
+
+
+			/* 动画 */
+
+			@keyframes shuffle-move {
+
+				0%, 100% { transform: translateY(0); }
+
+				25% { transform: translateY(-10px) rotate(-2deg); }
+
+				75% { transform: translateY(-5px) rotate(2deg); }
+
+			}
+
+			.animate-shuffle { animation: shuffle-move 0.2s infinite; }
+
+			
+
+			@keyframes breathe { 0%, 100% { opacity: 0.5; scale: 0.98; } 50% { opacity: 1; scale: 1.02; } }
+
+			.animate-breathe { animation: breathe 3s infinite ease-in-out; }
+
+		</style>
+
+	</head>
+
+
+
+	<body class="antialiased font-serif h-screen flex flex-col" x-data="appData()" x-init="initApp()" @click="activateAudio()">
+
+
+
+		<header class="fixed top-0 w-full bg-paper/95 backdrop-blur z-50 border-b border-gray-200 h-16 flex items-center justify-between px-6 z-[100]">
+
+			<h1 class="text-sm font-bold tracking-[0.2em] text-ink uppercase">Mind & Wisdom</h1>
+
+			<nav class="flex space-x-8">
+
+				<template x-for="tab in tabs" :key="tab.id">
+
+					<button @click="switchTab(tab.id)"
+
+						class="text-[11px] font-sans tracking-[0.1em] transition-all duration-300 relative group"
+
+						:class="activeTab === tab.id ? 'text-ink font-bold' : 'text-sub hover:text-ink'">
+
+						<span x-text="tab.label"></span>
+
+						<div class="absolute -bottom-1 left-0 w-full h-0.5 bg-gold transition-transform origin-left duration-300"
+
+							 :class="activeTab === tab.id ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50'"></div>
+
+					</button>
+
+				</template>
+
+			</nav>
+
+		</header>
+
+
+
+		<main class="flex-grow pt-16 w-full h-full relative overflow-hidden">
+
+
+
+			<div class="tab-content" 
+
+				 x-show="activeTab === 'cards'" 
+
+				 x-transition:enter="transition ease-out duration-500"
+
+				 x-transition:enter-start="opacity-0"
+
+				 x-transition:enter-end="opacity-100"
+
+				 x-transition:leave="transition ease-in duration-300"
+
+				 x-transition:leave-start="opacity-100"
+
+				 x-transition:leave-end="opacity-0">
+
+				
+
+				<div x-show="!cardState.selected" class="flex flex-col items-center cursor-pointer group scale-90 md:scale-100 transition-transform" @click="drawRandomCard()">
+
+					<div class="text-center mb-10">
+
+						<h2 class="text-4xl font-serif italic text-ink mb-2">The Oracle</h2>
+
+						<p class="text-[10px] font-sans tracking-[0.3em] text-sub uppercase">Click Deck to Draw</p>
+
+					</div>
+
+
+
+					<div class="relative w-64 h-96 deck-stack transition-all duration-200 group-active:scale-95"
+
+						 :class="cardState.isShuffling ? 'animate-shuffle' : 'group-hover:-translate-y-2'">
+
+						<div class="w-full h-full rounded-2xl bg-white border border-gray-100 overflow-hidden relative shadow-2xl flex items-center justify-center card-texture">
+
+							<img src="images/back.jpg" class="w-full h-full object-cover" alt="Back" 
+
+								 onerror="this.style.display='none';">
+
+							<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+
+								<span class="text-4xl text-gold/60 font-serif">♦</span>
+
+							</div>
+
+						</div>
+
+					</div>
+
+					
+
+					<div class="mt-8 h-4">
+
+						<p x-show="cardState.isShuffling" class="text-[10px] tracking-[0.2em] text-gold uppercase animate-pulse">Shuffling...</p>
+
+					</div>
+
+				</div>
+
+
+
+				<div x-show="cardState.selected" class="absolute inset-0 z-50 bg-paper/98 backdrop-blur-md flex flex-col items-center justify-center p-6" x-cloak>
+
+					<div class="relative w-[320px] h-[480px] shadow-2xl rounded-2xl animate-fade-in-up">
+
+						<div class="w-full h-full bg-white rounded-2xl overflow-hidden border-[10px] border-white shadow-inner flex items-center justify-center">
+
+							<img :src="currentCard.image" class="w-full h-full object-cover" alt="Card Front"
+
+								 onerror="console.log('Img missing'); this.src='https://source.unsplash.com/600x900/?abstract,art,light&sig=' + currentCard.id; this.onerror=null;">
+
+						</div>
+
+					</div>
+
+
+
+					<div x-show="cardState.selected" class="mt-10 text-center animate-fade-in">
+
+						<p class="text-sm font-serif text-ink/60 italic mb-6">"What message does this image hold for you?"</p>
+
+						<button @click="resetCard()" class="px-8 py-3 text-[10px] font-sans tracking-[0.25em] text-ink border border-ink/30 hover:bg-ink hover:text-white transition-all uppercase rounded-sm">
+
+							Close
+
+						</button>
+
+					</div>
+
+				</div>
+
+			</div>
+
+
+
+			<div class="tab-content" 
+
+				 x-show="activeTab === 'book'" 
+
+				 x-transition:enter="transition ease-out duration-500"
+
+				 x-transition:enter-start="opacity-0"
+
+				 x-transition:enter-end="opacity-100"
+
+				 x-transition:leave="transition ease-in duration-300"
+
+				 x-transition:leave-start="opacity-100"
+
+				 x-transition:leave-end="opacity-0">
+
+				
+
+				<div class="relative w-[340px] h-[520px]">
+
+					
+
+					<div class="absolute inset-0 bg-white rounded-lg shadow-soft border border-gray-100 flex flex-col items-center justify-center p-10 text-center z-0 transition-opacity duration-1000"
+
+						 :class="bookState.isOpen ? 'opacity-100 z-20' : 'opacity-0 z-0'">
+
+						
+
+						<div class="flex flex-col h-full justify-center w-full">
+
+							<span class="text-6xl text-gold/20 block mb-6 font-serif leading-none">“</span>
+
+							
+
+							<div class="overflow-y-auto max-h-[340px] no-scrollbar px-2 w-full">
+
+								<p class="text-[10px] font-sans text-sub uppercase tracking-wider mb-6 opacity-60" 
+
+								   x-text="currentAnswer.en"></p>
+
+								<h3 class="text-xl font-serif text-ink font-bold leading-loose" 
+
+									x-html="formatAnswer(currentAnswer.cn)"></h3>
+
+							</div>
+
+							
+
+							<div class="w-8 h-px bg-gold/40 mt-8 mb-8 mx-auto flex-shrink-0"></div>
+
+							<button @click="resetBook()" class="text-[10px] text-sub tracking-[0.25em] uppercase border-b border-transparent hover:border-ink/30 pb-1 hover:text-ink transition-colors">
+
+								Ask Again
+
+							</button>
+
+						</div>
+
+					</div>
+
+
+
+					<div class="absolute inset-0 bg-[#F2F0E9] rounded-lg shadow-deck z-10 flex flex-col items-center justify-center transition-all duration-1000 border-l-4 border-gray-300"
+
+						 :class="bookState.isOpen ? 'opacity-0 pointer-events-none transform scale-110' : 'opacity-100'"
+
+						 @mousedown="startPress()" @touchstart.prevent="startPress()"
+
+						 @mouseup="endPress()" @touchend="endPress()"
+
+						 @mouseleave="endPress()">
+
+						
+
+						<div class="border border-gold/20 w-[88%] h-[92%] flex flex-col items-center justify-center relative p-4">
+
+							<h3 class="text-2xl font-serif font-bold text-ink tracking-[0.15em] mb-2">THE BOOK</h3>
+
+							<span class="text-[9px] font-sans tracking-[0.4em] text-sub uppercase">Of Wisdom</span>
+
+
+
+							<div class="mt-24 mb-24 w-24 flex flex-col items-center">
+
+								<p class="text-[10px] font-sans tracking-[0.2em] text-ink uppercase mb-2 transition-colors"
+
+								   :class="bookState.isPressing ? 'text-gold' : 'text-ink'">
+
+								   Press & Hold
+
+								</p>
+
+								<div class="w-full h-[2px] bg-gray-200 relative overflow-hidden">
+
+									<div class="absolute top-0 left-0 h-full bg-gold transition-all ease-linear"
+
+										 :style="bookState.isPressing ? 'width: 100%; transition-duration: 3000ms;' : 'width: 0%; transition-duration: 200ms;'"></div>
+
+								</div>
+
+							</div>
+
+							<p class="absolute bottom-10 text-[9px] text-sub/30 tracking-[0.2em] uppercase">3 Seconds</p>
+
+						</div>
+
+					</div>
+
+				</div>
+
+			</div>
+
+
+
+			<div class="tab-content" 
+
+				 x-show="activeTab === 'goals'"
+
+				 x-transition:enter="transition ease-out duration-500"
+
+				 x-transition:enter-start="opacity-0"
+
+				 x-transition:enter-end="opacity-100"
+
+				 x-transition:leave="transition ease-in duration-300"
+
+				 x-transition:leave-start="opacity-100"
+
+				 x-transition:leave-end="opacity-0">
+
+				 
+
+				 <div class="w-full max-w-md bg-white p-10 shadow-soft rounded-xl border border-gray-100">
+
+					 <h2 class="text-xl font-serif text-ink mb-8 text-center">Daily Journal</h2>
+
+					 <div class="flex items-center border-b border-gray-200 mb-8 pb-2">
+
+						 <input type="text" x-model="newGoal" @keydown.enter="addGoal()" 
+
+								placeholder="Write a thought..." 
+
+								class="w-full py-2 focus:outline-none font-serif bg-transparent text-ink placeholder:text-sub/30">
+
+						 <button @click="addGoal()" class="text-xl text-gold hover:text-ink transition-colors px-2">＋</button>
+
+					 </div>
+
+					 <ul class="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
+
+						 <template x-for="(g,i) in goals" :key="i">
+
+							 <li class="flex items-center justify-between text-sm font-serif text-ink/80 pb-3 border-b border-dashed border-gray-50 group">
+
+								 <div class="flex items-center gap-3">
+
+									 <button @click="removeGoal(i)" class="text-sub/20 hover:text-red-400 text-[10px] uppercase tracking-wider transition-colors">Del</button>
+
+									 <span class="text-gold text-[8px]">●</span>
+
+									 <span x-text="g.text"></span>
+
+								 </div>
+
+								 <span x-text="g.time" class="text-[9px] font-sans text-sub/40 ml-2 whitespace-nowrap"></span>
+
+							 </li>
+
+						 </template>
+
+					 </ul>
+
+					 <div x-show="goals.length === 0" class="text-center text-[10px] text-sub/30 py-4 uppercase tracking-widest">No entries yet</div>
+
+				 </div>
+
+			</div>
+
+
+
+		</main>
+
+
+
+		<style>.animate-fade-in { animation: fadeIn 1s ease-out forwards; } .animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } } .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }</style>
+
+
+
+		<script>
+
+			const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+			function playSound(type) {
+
+				if (audioCtx.state === 'suspended') audioCtx.resume();
+
+				const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+
+				osc.connect(gain); gain.connect(audioCtx.destination);
+
+				if (type === 'tick') {
+
+					osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+					gain.gain.setValueAtTime(0.05, audioCtx.currentTime); 
+
+					gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+					osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+
+				} else if (type === 'open') {
+
+					osc.type = 'triangle'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+
+					gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+					osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 1.5);
+
+					gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+
+					osc.start(); osc.stop(audioCtx.currentTime + 2);
+
+				}
+
+			}
+
+
+
+			function appData() {
+
+				return {
+
+					activeTab: 'cards',
+
+					// 更新后的导航文本
+
+					tabs: [ { id: 'cards', label: '读心卡牌' }, { id: 'book', label: '答案之书' }, { id: 'goals', label: '日常记录' } ],
+
+					
+
+					// 1. 卡牌逻辑
+
+					cardState: { selected: false, flipped: false, isShuffling: false },
+
+					currentCard: { id: 0, image: '' },
+
+
+
+					activateAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); },
+
+
+
+					drawRandomCard() {
+
+						if(this.cardState.isShuffling) return;
+
+						this.cardState.isShuffling = true;
+
+						let shuffleInterval = setInterval(() => playSound('tick'), 100);
+
+						
+
+						setTimeout(() => {
+
+							clearInterval(shuffleInterval);
+
+							const randomIndex = Math.floor(Math.random() * 30);
+
+							this.currentCard.id = randomIndex;
+
+							this.currentCard.image = `images/${randomIndex + 1}.jpg`; 
+
+							
+
+							this.cardState.isShuffling = false;
+
+							this.cardState.selected = true; 
+
+							playSound('open');
+
+						}, 800);
+
+					},
+
+					
+
+					resetCard() { this.cardState.selected = false; },
+
+
+
+					// 2. 答案之书 (完整库)
+
+					bookState: { isPressing: false, isOpen: false, timer: null },
+
+					currentAnswer: { en: '', cn: '' },
+
+					answers: [
+
+						{ cn: "真正的智慧源于每日不间断的阅读与学习，而非天生的聪明。", en: "True wisdom comes from constant reading and learning, not natural brilliance." },
+
+						{ cn: "学会“如何学习”，比记住答案更重要。", en: "Learning 'how to learn' is more important than memorizing answers." },
+
+						{ cn: "每天进步一点，目标是比清晨醒来时更睿智。", en: "Go to bed smarter than when you woke up." },
+
+						{ cn: "那些持续进步的人，往往是永不停歇的“学习机器”。", en: "Those who keep learning are often continuous 'learning machines'." },
+
+						{ cn: "承认“我不知道”是智慧的开端。", en: "Admitting 'I don't know' is the beginning of wisdom." },
+
+						{ cn: "理解一个观点，应能清晰复述对手的论据。", en: "To understand a view, you must be able to argue against it better than your opponent." },
+
+						{ cn: "在重要学科中掌握核心思维模型，并综合运用。", en: "Master the core mental models of major disciplines and use them together." },
+
+						{ cn: "每年至少彻底审视并修正一次自己最珍视的想法。", en: "Examine and revise your most cherished ideas at least once a year." },
+
+						{ cn: "活得好，就是学习、学习、再学习。", en: "Living well means learning, learning, and learning." },
+
+						{ cn: "其终极回报，是精神世界的“复利”。", en: "The ultimate reward is the 'compound interest' of the mind." },
+
+						{ cn: "避免犯蠢，胜过追求聪明。", en: "Avoiding stupidity is better than seeking brilliance." },
+
+						{ cn: "大多数人最大的缺陷在于无法理性思考。", en: "The biggest defect for most is the inability to think rationally." },
+
+						{ cn: "逆向思考：想要成功，先想清楚什么会导致失败，然后避开它。", en: "Invert: to succeed, first know what causes failure, then avoid it." },
+
+						{ cn: "理性是道德责任。", en: "Rationality is a moral duty." },
+
+						{ cn: "这需要耐心、自律，在逆境中不崩溃，在成功时不膨胀。", en: "It requires patience, discipline; not breaking in adversity, not swelling in success." },
+
+						{ cn: "少嫉妒，少怨恨，量入为出。", en: "Less envy, less resentment, live within your means." },
+
+						{ cn: "保持乐观，与可靠的人为伍，做应做之事。", en: "Stay optimistic, associate with reliable people, do what needs to be done." },
+
+						{ cn: "必须腾出时间静心思考。", en: "You must make time for quiet thinking." },
+
+						{ cn: "匆忙无暇思考，终将付出代价。", en: "Being too busy to think will eventually cost you." },
+
+						{ cn: "生活充满机会成本和沉重打击。关键区别在于，有人能恢复，有人不能。", en: "Life is full of blows. The key difference is: some recover, some don't." },
+
+						{ cn: "把每一次不幸都视为学习和好好行事的机会。", en: "See every misfortune as an opportunity to learn and behave well." },
+
+						{ cn: "不要自怜，而是建设性地利用打击。", en: "Don't pity yourself; use the blow constructively." },
+
+						{ cn: "人生的趣味和友谊常在克服困难中诞生。", en: "Friendship and joy often come from overcoming struggles." },
+
+						{ cn: "别让一场灾难因你的崩溃变成两场。", en: "Don't let one disaster become two by losing your head." },
+
+						{ cn: "坦然地接纳生活中的不如意，不要抱怨。", en: "Accept life's difficulties calmly; do not complain." },
+
+						{ cn: "与信任的人相处，明智地远离“毒素”般的人。", en: "Stay with trusted people; wisely avoid toxic ones." },
+
+						{ cn: "对抗衰老的最好方法，是在老去之前好好生活。", en: "The best way to fight aging is to live well before you get old." },
+
+						{ cn: "减少不必要的物欲，是最可靠的心灵防护。", en: "Reducing unnecessary desires is the most reliable mental defense." },
+
+						{ cn: "必须掌握重要学科的核心思想，它们是你应对复杂世界的工具箱。", en: "Master core ideas of key disciplines; they are your toolbox for a complex world." },
+
+						{ cn: "信任是世界上最有效率的系统，建立它需要一生，毁掉它只需一刻。", en: "Trust is the most efficient system, built in a lifetime, destroyed in a moment." },
+
+						{ cn: "与其试图改变他人，不如聪明地选择与你同行的人。", en: "Rather than trying to change others, choose wisely who walks with you." },
+
+						{ cn: "获取你想要之物的可靠方法，是让自己配得上它。", en: "The reliable way to get what you want is to deserve it." },
+
+						{ cn: "面对不公或打击，最好的报复是让自己变得更好，而非以牙还牙。", en: "The best revenge against injustice is to become better yourself." },
+
+						{ cn: "学会处理麻烦，是人生最重要的技能之一。", en: "Learning to handle trouble is one of life's most important skills." },
+
+						{ cn: "保持正直，不仅因为它是道德的，更因为它极度实用。", en: "Be integral, not just because it's moral, but because it's extremely practical." },
+
+						{ cn: "对世界保持适度的悲观能让你做好准备，但内心要保持乐观以驱动行动。", en: "Moderate pessimism prepares you, but inner optimism drives action." },
+
+						{ cn: "拥有跨代财富的秘诀，不仅是金钱的传承，更是正确价值观与生活态度的传承。", en: "Intergenerational wealth is about inheriting values, not just money." },
+
+						{ cn: "知道该忽略什么，和知道该关注什么一样重要。", en: "Knowing what to ignore is as important as knowing what to focus on." },
+
+						{ cn: "生活的目标不是避免失败，而是建立一种能安然度过任何失败的系统。", en: "The goal is not to avoid failure, but to build a system that survives it." },
+
+						{ cn: "成为终身自学者，你的投资组合中最重要的资产是你自己。", en: "Be a lifelong learner; your most important asset is yourself." },
+
+						{ cn: "每天花一小时提升自己的思想，十年后你会创造一个奇迹。", en: "Spend an hour a day improving your mind, and in ten years you'll create a miracle." },
+
+						{ cn: "大量阅读传记，与逝去的伟人交朋友，你会获得宝贵的经验。", en: "Read biographies; make friends with the eminent dead for valuable lessons." },
+
+						{ cn: "培养“可传授的观点”，能清晰地表达你的智慧。", en: "Cultivate 'teachable points of view' to clearly articulate your wisdom." },
+
+						{ cn: "痛苦+反思=进步。不要浪费任何一次挫折带来的学习机会。", en: "Pain + Reflection = Progress. Don't waste the learning opportunity of any setback." },
+
+						{ cn: "模仿你崇拜的人，但最终要发展出自己独特的风格。", en: "Imitate those you admire, but eventually develop your own unique style." },
+
+						{ cn: "建立自己的“原则”体系，并书面化，用它来指导日常选择。", en: "Establish and write down your 'principles' to guide daily choices." },
+
+						{ cn: "健康的身体是高效思维的硬件基础。", en: "A healthy body is the hardware foundation for efficient thinking." },
+
+						{ cn: "花时间弄清楚你真正不想要什么，这常常比想清楚要什么更容易，也更重要。", en: "Figure out what you don't want; it's often easier and more important." },
+
+						{ cn: "追求“理性的谦逊”：自信于自己的方法，同时对自己的具体结论保持怀疑。", en: "Pursue 'rational humility': be confident in your method, but skeptical of your conclusions." },
+
+						{ cn: "完成大于完美。在行动中迭代，好过在筹划中停滞。", en: "Done is better than perfect. Iterate in action rather than stagnating in planning." },
+
+						{ cn: "将大目标分解为一系列可执行、可检查的小步骤。", en: "Break big goals into actionable, checkable small steps." },
+
+						{ cn: "专注于自己能控制的事情，为无法控制的事情做好准备。", en: "Focus on what you can control; prepare for what you cannot." },
+
+						{ cn: "在找到真正有效的少数几个方法后，停止寻找，开始重复和优化。", en: "Once you find what works, stop searching and start repeating and optimizing." },
+
+						{ cn: "当机会明确时，要下重注。其余时间，耐心等待。", en: "When the opportunity is clear, bet heavily. Otherwise, wait patiently." },
+
+						{ cn: "建立自动化的好习惯，减少对意志力的依赖。", en: "Build automated habits to reduce reliance on willpower." },
+
+						{ cn: "接受现实，即使它不符合你的愿望。与事实合作，而非对抗。", en: "Accept reality, even if it's unwanted. Work with facts, not against them." },
+
+						{ cn: "在解决问题时，先定义问题，确保你在解决正确的问题。", en: "Define the problem first to ensure you are solving the right one." },
+
+						{ cn: "知道何时退出与知道何时进入同样重要。", en: "Knowing when to quit is as important as knowing when to start." },
+
+						{ cn: "最后，记住：简单，但不容易。", en: "Finally, remember: Simple, but not easy." }
+
+					],
+
+
+
+					formatAnswer(text) {
+
+						return text.replace(/([，。；？！])/g, '<span class="text-ink/40">$1</span><br class="mb-3"/>');
+
+					},
+
+
+
+					startPress() {
+
+						if (this.bookState.isOpen) return;
+
+						this.bookState.isPressing = true;
+
+						this.tickInterval = setInterval(() => playSound('tick'), 500); 
+
+						this.bookState.timer = setTimeout(() => {
+
+							clearInterval(this.tickInterval);
+
+							this.openBook();
+
+						}, 3000);
+
+					},
+
+					endPress() {
+
+						if (this.bookState.isOpen) return;
+
+						clearTimeout(this.bookState.timer);
+
+						clearInterval(this.tickInterval);
+
+						this.bookState.isPressing = false;
+
+					},
+
+					openBook() {
+
+						this.bookState.isPressing = false;
+
+						this.currentAnswer = this.answers[Math.floor(Math.random() * this.answers.length)];
+
+						playSound('open');
+
+						this.bookState.isOpen = true;
+
+					},
+
+					resetBook() { this.bookState.isOpen = false; },
+
+
+
+					// 3. Goals (带时间)
+
+					newGoal: '', 
+
+					goals: JSON.parse(localStorage.getItem('myGoals')) || [],
+
+					addGoal() { 
+
+						if(this.newGoal.trim()) { 
+
+							const now = new Date();
+
+							const timeStr = `${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+							this.goals.push({ text: this.newGoal, time: timeStr }); 
+
+							this.newGoal=''; 
+
+							this.saveGoals();
+
+						} 
+
+					},
+
+					removeGoal(index) { this.goals.splice(index, 1); this.saveGoals(); },
+
+					saveGoals() { localStorage.setItem('myGoals', JSON.stringify(this.goals)); },
+
+					
+
+					initApp() { },
+
+					switchTab(id) { this.activeTab = id; }
+
+				}
+
+			}
+
+		</script>
+
+	</body>
+
+	</html>

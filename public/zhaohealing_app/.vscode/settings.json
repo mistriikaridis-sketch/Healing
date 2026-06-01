@@ -1,0 +1,5 @@
+{
+    "claudeCode.allowDangerouslySkipPermissions": true,
+    "chat.useClaudeHooks": true,
+    "claudeCode.disableLoginPrompt": true
+}

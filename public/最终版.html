@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>静屿 StillIsle</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg': '#F9F7F2', 'ink': '#2C2C2C', 'sub': '#666666', 
+                        'accent': '#C5A059', 'paper': '#F0EFE9',
+                        'medical-blue': '#2563EB',
+                        'soul-light': '#fffcf5', 'soul-shadow': '#e6d5c8'
+                    },
+                    fontFamily: {
+                        'serif': ['"Noto Serif SC"', '"Playfair Display"', 'serif'],
+                        'sans': ['"Lato"', '"Noto Sans SC"', 'sans-serif'],
+                    },
+                    boxShadow: { 'deck': '0 25px 50px -12px rgba(0,0,0,0.4)', 'soft': '0 10px 30px rgba(0,0,0,0.1)' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        body { background-color: #F9F7F2; color: #2C2C2C; overflow: hidden; user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.6s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* MBTI & SCL90 等原有样式 */
+        .likert-container { display: flex; justify-content: space-between; align-items: center; margin: 40px 0; position: relative; padding: 0 20px; }
+        .likert-line { position: absolute; top: 50%; left: 40px; right: 40px; height: 2px; background: #e5e5e5; z-index: 0; }
+        .likert-option { width: 50px; height: 50px; border-radius: 50%; background: #fff; border: 2px solid #e5e5e5; z-index: 1; cursor: pointer; transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center; }
+        .likert-option:hover { border-color: #C5A059; transform: scale(1.1); }
+        .likert-option.selected { background: #C5A059; border-color: #C5A059; color: white; transform: scale(1.2); box-shadow: 0 10px 20px -5px rgba(197, 160, 89, 0.4); }
+        .mbti-label { position: absolute; top: -30px; font-size: 12px; font-weight: bold; color: #C5A059; letter-spacing: 0.1em; }
+        .mbti-label.agree { left: 20px; } .mbti-label.disagree { right: 20px; }
+        .scl-btn { width: 100%; height: 60px; border-radius: 12px; border: 1px solid transparent; background: #fff; color: #888; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .scl-btn:hover { background: #f8fafc; color: #2563EB; }
+        .scl-btn.selected { background: #2563EB; color: white; box-shadow: 0 8px 16px -4px rgba(37, 99, 235, 0.4); transform: translateY(-2px); border-color: #2563EB; }
+        .deck-stack { position: relative; transition: transform 0.2s ease; transform-origin: center bottom; }
+        .deck-stack::before { top: 3px; left: 2px; z-index: -1; transform: rotate(1deg); content:''; position:absolute; width:100%; height:100%; background:#fff; border:1px solid #ddd; border-radius:12px; }
+        .deck-stack::after { top: 6px; left: 4px; z-index: -2; transform: rotate(-1deg); box-shadow: 0 15px 35px rgba(0,0,0,0.1); content:''; position:absolute; width:100%; height:100%; background:#fff; border:1px solid #ddd; border-radius:12px; }
+        .animate-shuffle { animation: shuffle-move 0.3s ease-in-out infinite; }
+        @keyframes shuffle-move { 0% { transform: translateY(0) rotate(0deg); } 25% { transform: translateY(-5px) rotate(-2deg); } 75% { transform: translateY(-3px) rotate(2deg); } 100% { transform: translateY(0) rotate(0deg); } }
+        /* Nightlight */
+        #module-nightlight .character-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 240px; z-index: 10; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 0 40px rgba(255,255,255,0.6)); animation: float 5s ease-in-out infinite, bob 2s ease-in-out infinite alternate; cursor: pointer; }
+        #module-nightlight .character-body { position: relative; width: 150px; height: 170px; background-color: #ffffff; border-radius: 75px 75px 65px 65%; box-shadow: inset 0 0 30px rgba(230,230,255,1); animation: breathe 3s ease-in-out infinite, jelly 4s ease-in-out infinite; display: flex; justify-content: center; }
+        #module-nightlight .eyes { position: absolute; top: 42%; width: 54px; display: flex; justify-content: space-between; }
+        #module-nightlight .eye { width: 14px; height: 14px; background-color: #222; border-radius: 50%; animation: blink 3.5s infinite; }
+        #module-nightlight .blush { position: absolute; top: 54%; width: 18px; height: 10px; background-color: #ffaaaa; border-radius: 50%; filter: blur(2px); opacity: 0.8; }
+        #module-nightlight .blush.left { left: 28px; } #module-nightlight .blush.right { right: 28px; }
+        #module-nightlight .arm { position: absolute; top: 62%; width: 30px; height: 44px; background-color: #ffffff; border-radius: 15px; }
+        #module-nightlight .arm.left { left: -12px; transform-origin: top center; transform: rotate(20deg); animation: waveLeft 3s ease-in-out infinite; }
+        #module-nightlight .arm.right { right: -12px; transform-origin: top center; transform: rotate(-20deg); animation: waveRight 3s ease-in-out infinite; }
+        #module-nightlight .feet { display: flex; justify-content: space-between; width: 90px; margin-top: -16px; position: relative; z-index: -1; }
+        #module-nightlight .foot { width: 36px; height: 32px; background-color: #ffffff; border-radius: 0 0 18px 18px; animation: kick 1.5s ease-in-out infinite alternate; }
+        @keyframes float { 0%, 100% { transform: translate(-50%, -50%) translateY(0); } 50% { transform: translate(-50%, -50%) translateY(-20px); } }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+        @keyframes blink { 0%, 96%, 100% { height: 14px; } 98% { height: 2px; } }
+        @keyframes waveLeft { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(35deg); } }
+        @keyframes waveRight { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(-35deg); } }
+        @keyframes jelly { 0%, 100% { border-radius: 75px 75px 65px 65%; } 25% { border-radius: 70px 80px 60px 70%; } 50% { border-radius: 80px 70px 70px 60%; } 75% { border-radius: 65px 75px 75px 65%; } }
+        @keyframes bob { 0%, 100% { margin-top: 0; } 50% { margin-top: 5px; } }
+        @keyframes kick { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-3px) rotate(5deg); } }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.3); }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: pointer; }
+    </style>
+</head>
+
+<body class="h-screen w-screen flex flex-col" x-data="mainApp()" x-init="init()" @keydown.window="handleKey($event)">
+    <div class="absolute inset-0 -z-20 transition-colors duration-1000 ease-in-out" :style="bgStyle"></div>
+    <canvas id="particle-canvas" class="absolute inset-0 -z-10 opacity-30 pointer-events-none"></canvas>
+
+    <nav class="fixed top-0 w-full h-24 px-8 md:px-12 flex justify-between items-end pb-6 z-50 transition-all duration-500" 
+         :class="activeModule ? 'bg-white/90 backdrop-blur-md border-b border-black/5' : ''">
+        
+        <div class="cursor-pointer group flex items-center gap-4" @click="goHome()">
+            <div x-show="activeModule" class="text-xs uppercase tracking-widest text-sub group-hover:text-ink transition flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> <span>返回</span>
+            </div>
+            <h1 class="text-2xl font-serif font-bold tracking-wide text-ink" x-show="!activeModule || activeModule === 'journal'">静屿</h1>
+        </div>
+        
+        <div class="flex gap-10 text-xs font-sans tracking-widest uppercase text-sub" x-show="!activeModule">
+            <button @click="tab='today'" :class="tab==='today'?'text-ink font-bold border-b border-ink pb-1':'hover:text-ink'">当下</button>
+            <button @click="tab='explore'" :class="tab==='explore'?'text-ink font-bold border-b border-ink pb-1':'hover:text-ink'">探索</button>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-28 px-8 md:px-12 overflow-hidden relative">
+        
+        <div x-show="tab === 'today' && !activeModule" class="max-w-4xl mx-auto fade-in h-full overflow-y-auto no-scrollbar pb-24">
+            <header class="mb-16 mt-8 text-center">
+                <p class="text-xs font-sans text-sub tracking-widest uppercase mb-6" x-text="dateStr"></p>
+                <h2 class="text-2xl md:text-3xl font-serif text-ink font-light leading-relaxed tracking-wide max-w-2xl mx-auto line-clamp-2">
+                    “<span x-text="dailyQuote.cn"></span>”
+                </h2>
+                <p class="text-xs font-serif text-sub italic mt-4">— <span x-text="dailyQuote.en"></span></p>
+            </header>
+            
+            <div class="border-t border-black/10 pt-12 grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div class="group cursor-pointer" @click="openModule('meditation')">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-xs font-sans text-accent tracking-widest uppercase">Focus & Breathe</span>
+                        <span class="text-xl text-ink group-hover:translate-x-2 transition">→</span>
+                    </div>
+                    <h3 class="text-3xl font-serif text-ink mb-3 group-hover:opacity-70 transition nav-text font-bold">在此 · 冥想</h3>
+                    <p class="text-base text-sub font-light leading-relaxed">给自己十分钟。<br>声景 · 呼吸练习 · 正念引导</p>
+                </div>
+                <div class="group cursor-pointer" @click="openModule('journal')">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-xs font-sans text-sub tracking-widest uppercase">Daily Routine</span>
+                        <span class="text-xl text-ink group-hover:translate-x-2 transition">→</span>
+                    </div>
+                    <h3 class="text-3xl font-serif text-ink mb-3 group-hover:opacity-70 transition nav-text font-bold">觉察日记</h3>
+                    <p class="text-base text-sub font-light leading-relaxed">观照自我。<br>记录情绪与念头，建立内心秩序。</p>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="tab === 'explore' && !activeModule" class="max-w-6xl mx-auto fade-in h-full overflow-y-auto no-scrollbar pb-24">
+            <div class="mb-16 mt-8">
+                <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Inner Self / 本我探索</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div class="cursor-pointer group explore-item md:text-left" @click="openModule('mbti')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">MBTI 人格</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">深度解析性格底色。<br>基于 NERIS 模型 (60题)。</p>
+                    </div>
+                    <div class="cursor-pointer group explore-item md:text-left" @click="openModule('scl90')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">SCL-90</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">心理健康状态自查。<br>90 项专业临床评估。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <div>
+                    <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Wisdom / 灵启</h4>
+                    <div class="cursor-pointer group explore-item" @click="openModule('oracle')">
+                        <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">神谕与答案</h3>
+                        <p class="text-sm text-sub font-light leading-relaxed">读心卡牌 · 答案之书。<br>连接直觉，寻找当下的指引。</p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-sans text-sub tracking-widest uppercase mb-10 border-b border-black/10 pb-3">Art / 疗愈</h4>
+                    <div class="space-y-8">
+                        <div class="cursor-pointer group explore-item" @click="openModule('nightlight')">
+                            <h3 class="text-2xl font-serif text-ink mb-2 font-bold group-hover:text-accent transition">小夜灯</h3>
+                            <p class="text-sm text-sub font-light leading-relaxed">Night Healing Light.<br>极致色彩疗愈，点亮内心的角落。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+                        </button>
+            </div>
+
+            <div class="absolute bottom-20 w-full px-6 md:px-20 text-center">
+                <p class="text-xl md:text-2xl text-[#5a4a42] font-medium leading-relaxed transition-all duration-300 min-h-[4rem] flex items-center justify-center" 
+                   style="text-shadow: 0 2px 10px rgba(255,255,255,0.8);"
+                   x-text="subtitle"></p>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'meditation'" class="absolute inset-0 z-40 flex fade-in font-sans" id="module-beinghere" x-data="beingHereApp()">
+            <div class="w-64 h-full border-r border-black/5 flex flex-col pt-32 pb-10 pl-10 pr-6 z-20 bg-white/40 backdrop-blur-xl">
+                <div class="mb-16"><div class="text-3xl font-serif font-bold text-ink tracking-wide">在此</div><div class="text-[10px] uppercase tracking-widest text-sub mt-2 opacity-70">Focus & Breathe</div></div>
+                <div class="flex flex-col gap-6">
+                    <div class="text-[10px] uppercase tracking-widest text-black/40 font-bold mb-2">模式</div>
+                    <template x-for="m in modes"><button @click="switchMode(m.id)" :class="currentMode===m.id ? 'text-ink font-bold pl-3 border-l-2 border-ink' : 'text-sub hover:text-ink'" class="text-left text-sm tracking-widest uppercase transition-all h-8 flex items-center"><span x-text="m.label"></span></button></template>
+                </div>
+            </div>
+            <div class="flex-1 relative flex flex-col items-center justify-center h-full" @click="stopAlarm()">
+                <div x-show="currentMode === 'focus' || currentMode === 'breathe'" class="text-center relative z-10 w-full h-full flex flex-col items-center justify-center">
+                    <div class="w-[380px] h-[380px] rounded-full flex flex-col items-center justify-center bg-white/10 backdrop-blur-sm cursor-pointer transition-all duration-700 hover:bg-white/20" :class="isRunning ? 'breathe-active' : 'breathe-circle'" :style="visualStyle" @click.stop="toggle()">
+                        <div x-show="currentMode === 'focus'" class="text-8xl font-serif text-ink font-light tabular-nums tracking-tighter" x-text="timerDisplay"></div>
+                        <div x-show="currentMode === 'breathe'" class="flex flex-col items-center">
+                            <span class="text-4xl font-serif text-ink font-light tracking-widest uppercase mb-4" x-text="statusText === '准备' ? breathName : statusText"></span>
+                            <span x-show="isRunning && breathTimer > 0" class="text-2xl font-serif text-ink/50" x-text="breathTimer"></span>
+                        </div>
+                        <div class="text-xs uppercase tracking-[0.4em] text-ink/60 mt-6 font-bold" x-text="currentMode === 'focus' ? statusText : ''"></div>
+                    </div>
+                    <div x-show="isAlarmRinging" class="absolute bottom-32 w-full text-center pulse-text"><p class="text-xs font-sans tracking-widest uppercase text-accent">点击屏幕任意处停止 / Tap Screen to Stop</p></div>
+                    <div class="mt-16 flex items-center gap-12 text-xs tracking-[0.2em] font-bold text-ink uppercase">
+                        <button @click.stop="toggle()" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1" x-text="isRunning ? '暂停' : '开始'"></button>
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button @click.stop="open = !open" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1 flex items-center gap-2">设置 <i class="fa-solid fa-sliders"></i></button>
+                            <div x-show="open" class="absolute bottom-12 left-1/2 -translate-x-1/2 w-64 bg-white shadow-xl rounded-xl p-6 z-50 text-left normal-case tracking-normal">
+                                <div x-show="currentMode === 'focus'"><div class="text-[10px] text-sub uppercase mb-2">时长 (分钟)</div><div class="grid grid-cols-3 gap-2 mb-2"><button @click="setDuration(25)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs">25</button><button @click="setDuration(45)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs">45</button><button @click="setDuration(0)" class="p-2 border rounded text-center hover:bg-gray-50 text-xs text-xl">∞</button></div><div class="flex gap-2 mb-4"><input type="number" placeholder="自定义" class="w-full p-2 border rounded text-xs outline-none" @change="setDuration($event.target.value)"></div><div class="text-[10px] text-sub uppercase mb-2">结束铃声</div><div class="flex flex-col gap-2"><button @click="setAlarm('echo'); playSample('Nature-audio/Echo.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='echo'?'bg-gray-100 font-bold':''">回声谷</button><button @click="setAlarm('campfire'); playSample('Nature-audio/Campfire.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='campfire'?'bg-gray-100 font-bold':''">营地篝火</button><button @click="setAlarm('seabreeze'); playSample('Nature-audio/Seabreeze.MP3')" class="text-left text-xs hover:text-accent p-1 rounded" :class="alarmSound==='seabreeze'?'bg-gray-100 font-bold':''">海浪</button></div></div>
+                                <div x-show="currentMode === 'breathe'"><div class="text-[10px] text-sub uppercase mb-2">模式</div><div class="flex flex-col gap-2"><button @click="setBreath('4-7-8', '舒缓')" class="text-left p-2 rounded hover:bg-gray-50 text-xs flex justify-between" :class="breathPattern==='4-7-8'?'font-bold':''"><span>舒缓 (4-7-8)</span></button><button @click="setBreath('5-5-5', '平衡')" class="text-left p-2 rounded hover:bg-gray-50 text-xs flex justify-between" :class="breathPattern==='5-5-5'?'font-bold':''"><span>平衡 (箱式)</span></button></div></div>
+                            </div>
+                        </div>
+                        <button @click.stop="reset()" class="hover:opacity-50 transition border-b border-transparent hover:border-ink pb-1">重置</button>
+                    </div>
+                </div>
+                <div x-show="currentMode === 'sound' || currentMode === 'mind'" class="w-full h-full absolute inset-0 overflow-y-auto no-scrollbar p-16 pt-24" @click.stop>
+                    <h2 class="text-3xl font-serif text-ink mb-10 ml-2" x-text="currentMode === 'sound' ? '声景' : '正念引导'"></h2>
+                    <p x-show="currentMode === 'mind'" class="ml-2 mb-4 text-xs text-sub italic">引导音频可与声景叠加播放。</p>
+                    <template x-for="(section, title) in (currentMode === 'sound' ? soundCollections : mindCollections)">
+                        <div class="mb-12"><h3 class="text-sm font-sans tracking-widest uppercase text-sub mb-6 border-b border-black/10 pb-2" x-text="title"></h3><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"><template x-for="track in section"><div class="cursor-pointer group" @click="playSound(track, currentMode === 'sound' ? 'bg' : 'voice')"><div class="aspect-square bg-gray-200 mb-3 overflow-hidden relative rounded-lg shadow-sm border border-black/5"><img :src="track.cover" class="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100" onerror="this.style.display='none'; this.parentNode.style.backgroundColor='#cccccc'"><div class="absolute inset-0 bg-black/10 flex items-center justify-center transition-opacity duration-300" :class="(currentMode === 'sound' ? (currentBg === track.file && isBgPlaying) : (currentVoice === track.file && isVoicePlaying)) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"><i class="fa-solid text-white text-xl" :class="(currentMode === 'sound' ? (currentBg === track.file && isBgPlaying) : (currentVoice === track.file && isVoicePlaying)) ? 'fa-pause' : 'fa-play'"></i></div></div><div class="text-sm font-serif text-ink group-hover:text-accent truncate text-center" x-text="track.title"></div></div></template></div></div>
+                    </template>
+                </div>
+            </div>
+            <audio id="audio-bg" loop></audio><audio id="audio-voice"></audio><audio id="alarm-audio"></audio>
+        </div>
+
+        <div x-show="activeModule === 'journal'" class="absolute inset-0 z-40 bg-[#F9F8F4] overflow-y-auto no-scrollbar fade-in" id="module-journal" x-data="journalApp()" x-init="init()">
+            <div class="max-w-3xl mx-auto px-8 pt-32 pb-20 min-h-full flex flex-col">
+                <header class="text-center mb-10 fade-in"><h1 class="text-5xl md:text-6xl font-journal-en font-bold text-ink mb-6 tracking-tight">Know Your Self</h1><nav class="flex justify-center gap-12 font-journal-en text-xs uppercase tracking-[0.2em] text-sub"><span @click="view='write'" class="cursor-pointer pb-1 transition-all border-b border-transparent hover:border-ink" :class="view==='write'?'text-ink font-bold border-ink':''">深读 / 今日书写</span><span @click="view='history'" class="cursor-pointer pb-1 transition-all border-b border-transparent hover:border-ink" :class="view==='history'?'text-ink font-bold border-ink':''">过往 / 历史篇章</span></nav></header>
+                <div class="text-center mb-12 px-4 py-8 border-y border-[#E0E0E0]"><div class="text-lg font-serif text-ink mb-2" x-text="quote.cn"></div><div class="text-sm font-journal-en italic text-sub" x-text="quote.en"></div></div>
+                <div x-show="view === 'write'" class="fade-in">
+                    <div class="text-center mb-12 text-xs font-journal-en tracking-[0.2em] text-[#999]" x-text="dateDisplay"></div>
+                    <div class="mb-16"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Achievement</span><div class="text-2xl font-serif text-ink mb-6">小确幸</div><textarea x-model="entry.achievement" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[100px]" placeholder="记录今日的微小成就..."></textarea></div>
+                    <div class="mb-16"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Gratitude</span><div class="text-2xl font-serif text-ink mb-6">感恩时刻</div><textarea x-model="entry.gratitude" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[100px]" placeholder="值得感谢的人或事..."></textarea></div>
+                    <div class="mb-20"><span class="block font-journal-en text-xs uppercase tracking-widest text-[#888] mb-3">Mood Check-in</span><div class="text-2xl font-serif text-ink mb-6">心境</div><div class="flex gap-8 font-journal-en italic text-[#888] mb-8"><template x-for="m in ['Sunny','Cloudy','Rainy','Storm','Calm']"><span @click="entry.moodVal = m" class="cursor-pointer hover:text-ink relative mood-btn transition" :class="entry.moodVal === m ? 'text-ink font-bold selected scale-110' : ''" x-text="m"></span></template></div><textarea x-model="entry.moodText" class="w-full bg-transparent border-none resize-none p-0 text-lg font-serif text-ink focus:ring-0 journal-input outline-none min-h-[80px]" placeholder="此刻的念头..."></textarea></div>
+                    <button @click="save()" class="block mx-auto px-16 py-4 border border-ink text-ink font-journal-en text-xs uppercase tracking-widest hover:bg-ink hover:text-white transition-all duration-300">保存</button>
+                </div>
+                <div x-show="view === 'history'" class="fade-in">
+                    <template x-for="item in history"><div class="py-12 border-b border-[#E0E0E0] last:border-0 flex flex-col items-start"><div class="font-journal-en text-xs uppercase tracking-widest text-[#888] mb-4">HEAL / <span x-text="item.dateStr"></span> / <span x-text="item.moodVal"></span></div><div class="font-journal-en text-4xl text-ink mb-6 leading-tight">Inner Self</div><div class="text-lg font-serif text-[#555] font-light mb-8 line-clamp-3 leading-relaxed" x-text="getPreview(item)"></div><button @click="showDetail(item)" class="font-journal-en text-xs uppercase underline underline-offset-4 text-ink hover:text-[#888] transition">阅读全文</button></div></template>
+                    <div x-show="history.length === 0" class="text-center py-20 font-journal-en italic text-[#888]">暂无记录，开始书写第一篇章。</div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'mbti'" class="absolute inset-0 z-40 bg-[#F9F7F2] overflow-y-auto no-scrollbar fade-in" id="module-mbti" x-data="mbtiApp()" x-init="init()" @keydown.window="handleCheat($event)">
+            <button @click="goHome()" class="fixed top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-sub hover:text-ink">关闭</button>
+            <div class="max-w-2xl mx-auto px-6 py-10 min-h-screen flex flex-col items-center justify-center">
+                <div x-show="step===0" class="text-center">
+                    <h2 class="text-4xl font-serif font-bold text-ink mb-6">MBTI 人格分析</h2>
+                    <p class="text-sm text-sub mb-12">深度解析性格底色 · 60道精选题</p>
+                    <button @click="start()" class="px-10 py-3 bg-ink text-white font-serif tracking-widest hover:bg-accent transition">开始测试</button>
+                </div>
+                <div x-show="step===1" class="w-full">
+                    <div class="flex justify-between text-xs font-bold text-sub mb-2 uppercase tracking-widest">
+                        <span x-text="'Question ' + (currentIdx + 1)"></span>
+                        <span x-text="'/ ' + questions.length"></span>
+                    </div>
+                    <div class="w-full h-1 bg-gray-200 rounded-full mb-12"><div class="h-full bg-ink transition-all duration-500" :style="`width: ${((currentIdx+1)/questions.length)*100}%`"></div></div>
+                    <div class="min-h-[160px] flex flex-col items-center justify-center mb-10 text-center">
+                        <h3 class="text-2xl font-serif text-ink leading-relaxed mb-12" x-text="questions[currentIdx]?.q"></h3>
+                        <div class="w-full likert-container">
+                            <span class="mbti-label agree">同意</span>
+                            <span class="mbti-label disagree">不认同</span>
+                            <div class="likert-line"></div>
+                            <template x-for="i in 7">
+                                <div class="likert-option" :class="selectedScore === i ? 'selected' : ''" @click="selectScore(i)" :style="i === 4 ? 'width:30px;height:30px;border-width:1px' : (i===1||i===7 ? 'width:60px;height:60px;border-width:3px' : '')"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mt-8">
+                        <button @click="next()" :disabled="!selectedScore" class="px-10 py-3 bg-ink text-white font-serif tracking-widest hover:bg-accent transition disabled:opacity-30 disabled:cursor-not-allowed">下一步</button>
+                    </div>
+                </div>
+                <div x-show="step===2" class="text-center w-full max-w-4xl pb-20">
+                    <div class="text-xs font-bold text-sub tracking-widest uppercase mb-4">Your Personality Type</div>
+                    <h1 class="text-6xl font-serif font-bold text-ink mb-2" x-text="result.code"></h1>
+                    <h2 class="text-2xl font-serif text-accent mb-8" x-text="result.name"></h2>
+                    <div class="mb-10 text-left bg-white p-10 rounded-xl shadow-sm border border-gray-100">
+                        <div class="text-center mb-8 border-b border-gray-100 pb-6">
+                            <p class="text-xl font-serif italic text-ink mb-2">"<span x-text="result.quote"></span>"</p>
+                            <p class="text-xs font-sans text-sub uppercase">— <span x-text="result.author"></span></p>
+                        </div>
+                        <p class="text-sm text-sub leading-loose text-justify whitespace-pre-line font-sans" x-html="result.desc"></p>
+                    </div>
+                    <div class="flex flex-col gap-4">
+                        <button @click="goHome()" class="text-xs underline text-ink">返回主页</button>
+                        <button @click="retake()" class="text-xs text-sub/50 hover:text-ink uppercase tracking-widest">重新测试 (Retake Test)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'scl90'" class="absolute inset-0 z-40 bg-[#FDFCF8] overflow-y-auto no-scrollbar fade-in" id="module-scl90" x-data="scl90App()" @keydown.window="handleCheat($event)">
+            <button @click="goHome()" class="fixed top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-sub hover:text-ink">关闭</button>
+            <div class="flex-grow flex items-center justify-center px-6 pt-32 pb-20 min-h-screen">
+                <div x-show="step === 0" class="w-full max-w-md text-center animate-fade-in py-10">
+                    <div class="mb-12"><h1 class="text-4xl font-serif text-ink font-bold tracking-wide mb-3">症状自评量表 SCL-90</h1><p class="text-sm font-sans tracking-widest-xl text-sub uppercase">Symptom Checklist 90</p></div>
+                    <div class="flex justify-center items-center gap-12 mb-16 font-sans text-xs tracking-wide text-sub"><div class="flex flex-col items-center gap-2"><span class="text-ink text-xl font-serif font-semibold">16+</span><span class="uppercase tracking-widest text-[10px]">适用年龄</span></div><div class="w-px h-8 bg-gray-200"></div><div class="flex flex-col items-center gap-2"><span class="text-ink text-xl font-serif font-semibold">90</span><span class="uppercase tracking-widest text-[10px]">项目数量</span></div></div>
+                    <button @click="startTest()" class="w-full py-4 bg-ink text-paper text-sm font-sans uppercase tracking-widest hover:bg-sub transition-colors duration-300 rounded-sm shadow-lg">开始测评</button>
+                </div>
+                <div x-show="step === 1" class="w-full max-w-2xl mx-auto py-10">
+                    <div class="w-full h-1 bg-gray-100 rounded-full mb-12"><div class="h-full bg-ink transition-all duration-500" :style="`width: ${progress}%`"></div></div>
+                    <template x-for="(qIndex, idx) in currentBatch" :key="qIndex">
+                        <div class="mb-16 animate-fade-in">
+                            <div class="flex flex-col items-center text-center mb-8"><span class="text-xs font-sans text-sub tracking-widest mb-2">ITEM <span x-text="qIndex + 1"></span> / 90</span><h3 class="text-2xl font-serif text-ink leading-normal" x-text="questions[qIndex]"></h3></div>
+                            <div class="relative">
+                                <div class="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2 px-2"><span>从无 (Never)</span><span>严重 (Severe)</span></div>
+                                <div class="grid grid-cols-5 gap-3">
+                                    <template x-for="opt in options" :key="opt.val">
+                                        <button @click="answer(qIndex, opt.val)" :class="answers[qIndex] === opt.val ? 'selected' : ''" class="scl-btn">
+                                            <span class="text-lg font-serif mb-1" x-text="opt.val"></span>
+                                            <span class="text-[9px] font-sans uppercase tracking-wider" x-text="opt.label" x-show="answers[qIndex] === opt.val"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div class="flex justify-between items-center pt-10 border-t border-gray-100">
+                        <button @click="prevPage()" :disabled="currentPage === 0" class="text-sm font-sans tracking-widest text-sub hover:text-ink disabled:opacity-0 transition-colors">← BACK</button>
+                        <button @click="nextPage()" :disabled="!canGoNext" :class="canGoNext ? 'bg-ink text-paper' : 'bg-gray-200 text-white cursor-not-allowed'" class="px-8 py-3 text-sm font-sans tracking-widest transition-colors duration-300 rounded-sm">
+                            <span x-text="isLastPage ? 'SUBMIT / 提交' : 'NEXT / 下一页'"></span>
+                        </button>
+                    </div>
+                </div>
+                <div x-show="step === 2" id="report-content" class="w-full max-w-3xl mx-auto bg-white p-8 md:p-12 shadow-soft border border-gray-100 my-10">
+                    <div class="text-center mb-12 border-b border-gray-100 pb-8"><h2 class="text-3xl font-serif mb-3 font-bold text-ink">Clinical Analysis Report</h2><p class="text-xs font-sans tracking-widest text-sub uppercase mt-4">SCL-90 Assessment • <span x-text="currentDate"></span></p></div>
+                    <div x-show="hasCrisis" class="mb-10 p-5 border border-red-800 text-center bg-red-50"><p class="font-serif text-sm text-red-900 leading-relaxed"><span class="font-bold block mb-2 text-base">⚠️ Attention Required / 请注意</span>检测到特定指标数值较高。建议咨询专业医师。</p></div>
+                    <div class="h-80 w-full relative mb-12 flex justify-center"><canvas id="radarChart"></canvas></div>
+                    <div class="space-y-4 border-t border-gray-100 pt-8"><template x-for="factor in results.factors" :key="factor.key"><div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"><div class="flex flex-col"><span class="text-sm font-serif text-ink font-bold" x-text="factor.nameEn"></span><span class="text-xs font-serif text-sub" x-text="factor.nameCn"></span></div><div class="flex items-center gap-4"><div class="w-32 h-1 bg-gray-100 rounded-full overflow-hidden hidden md:block"><div class="h-full bg-medical-blue" :style="`width: ${(factor.score / 5) * 100}%`"></div></div><div class="w-8 text-right font-serif font-bold text-ink" x-text="factor.score"></div></div></div></template></div>
+                    <div class="mt-10 flex justify-center gap-6 no-print"><button @click="exportPDF" class="px-6 py-2 border border-ink text-ink hover:bg-ink hover:text-white transition-colors text-xs font-sans tracking-widest uppercase rounded-sm">Download PDF</button><button @click="resetTest" class="px-6 py-2 text-sub hover:text-ink transition-colors text-xs font-sans tracking-widest uppercase">Restart</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="activeModule === 'oracle'" class="absolute inset-0 z-40 bg-[#F9F7F2] overflow-y-auto no-scrollbar fade-in" id="module-oracle" x-data="oracleApp()">
+            <header class="fixed top-0 w-full h-16 flex items-center justify-center px-6 z-[60] mt-24 pointer-events-none">
+                <nav class="flex gap-8 pointer-events-auto bg-white/80 backdrop-blur-sm px-6 py-2 rounded-full shadow-sm border border-black/5">
+                    <button @click="activeTab = 'cards'" class="text-[10px] font-sans tracking-widest uppercase transition relative group" :class="activeTab === 'cards' ? 'text-ink font-bold' : 'text-sub hover:text-ink'"><span>读心卡牌</span><div class="absolute -bottom-1 left-0 w-full h-0.5 bg-accent transition-transform origin-left" :class="activeTab === 'cards' ? 'scale-x-100' : 'scale-x-0'"></div></button>
+                    <button @click="activeTab = 'book'" class="text-[10px] font-sans tracking-widest uppercase transition relative group" :class="activeTab === 'book' ? 'text-ink font-bold' : 'text-sub hover:text-ink'"><span>答案之书</span><div class="absolute -bottom-1 left-0 w-full h-0.5 bg-accent transition-transform origin-left" :class="activeTab === 'book' ? 'scale-x-100' : 'scale-x-0'"></div></button>
+                </nav>
+            </header>
+            <main class="w-full h-full flex flex-col items-center justify-center pt-32 pb-10">
+                <div x-show="activeTab === 'cards'" class="w-full h-full flex items-center justify-center fade-in">
+                    <div x-show="!cardState.selected" class="flex flex-col items-center cursor-pointer group scale-90 md:scale-100 transition-transform" @click="drawRandomCard()">
+                        <div class="text-center mb-8"><h2 class="text-3xl font-serif italic text-ink mb-1">The Oracle</h2><p class="text-[10px] font-sans tracking-widest text-sub uppercase">Click Deck to Draw</p></div>
+                        <div class="relative w-64 h-96 deck-stack" :class="cardState.isShuffling ? 'animate-shuffle' : ''"><div class="w-full h-full rounded-xl bg-white border border-gray-200 shadow-deck flex items-center justify-center card-texture relative overflow-hidden"><div class="absolute inset-0 flex items-center justify-center pointer-events-none"><span class="text-4xl text-accent/60 font-serif">♦</span></div></div></div>
+                    </div>
+                    <div x-show="cardState.selected" class="absolute inset-0 z-50 bg-[#F9F7F2]/95 backdrop-blur flex flex-col items-center justify-center p-6 fade-in">
+                        <div class="relative w-[300px] h-[450px] shadow-2xl rounded-xl overflow-hidden border-8 border-white"><img :src="currentCard.image" class="w-full h-full object-cover" onerror="this.src='https://source.unsplash.com/random/600x900/?abstract,nature&sig='+Math.random()"></div>
+                        <div class="mt-8 text-center"><p class="text-sm font-serif text-ink/80 italic mb-6">"What message does this image hold for you?"</p><button @click="resetCard()" class="px-8 py-2 text-[10px] font-sans tracking-widest text-ink border border-ink hover:bg-ink hover:text-white transition uppercase rounded-sm">Close</button></div>
+                    </div>
+                </div>
+                <div x-show="activeTab === 'book'" class="w-full h-full flex items-center justify-center fade-in">
+                    <div class="relative w-[340px] h-[500px]">
+                        <div class="absolute inset-0 bg-white rounded-lg shadow-soft border border-gray-100 flex flex-col items-center justify-center p-10 text-center z-0 transition-opacity duration-1000" :class="bookState.isOpen ? 'opacity-100 z-20' : 'opacity-0 z-0'">
+                            <span class="text-6xl text-accent/20 block mb-6 font-serif">“</span><div class="overflow-y-auto max-h-[300px] no-scrollbar"><p class="text-[10px] font-sans text-sub uppercase tracking-wider mb-6 opacity-60" x-text="currentAnswer.en"></p><h3 class="text-xl font-serif text-ink font-bold leading-loose" x-html="currentAnswer.cn"></h3></div><button @click="resetBook()" class="mt-8 text-[10px] text-sub tracking-widest uppercase border-b border-transparent hover:border-sub pb-1 hover:text-ink transition">Ask Again</button>
+                        </div>
+                        <div class="absolute inset-0 bg-[#F2F0E9] rounded-lg shadow-deck z-10 flex flex-col items-center justify-center transition-all duration-1000 border-l-4 border-gray-300 cursor-pointer" :class="bookState.isOpen ? 'opacity-0 pointer-events-none transform scale-110' : 'opacity-100'" @mousedown="startPress()" @touchstart.prevent="startPress()" @mouseup="endPress()" @touchend="endPress()" @mouseleave="endPress()">
+                            <div class="border border-accent/20 w-[88%] h-[92%] flex flex-col items-center justify-center p-4"><h3 class="text-2xl font-serif font-bold text-ink tracking-widest mb-2">THE BOOK</h3><span class="text-[9px] font-sans tracking-[0.4em] text-sub uppercase">Of Wisdom</span><div class="mt-24 mb-24 w-24 flex flex-col items-center"><p class="text-[10px] font-sans tracking-widest text-ink uppercase mb-2" :class="bookState.isPressing ? 'text-accent' : 'text-ink'">Press & Hold</p><div class="w-full h-[2px] bg-gray-200 relative overflow-hidden"><div class="absolute top-0 left-0 h-full bg-accent transition-all ease-linear" :style="bookState.isPressing ? 'width: 100%; transition-duration: 3000ms;' : 'width: 0%; transition-duration: 200ms;'"></div></div></div><p class="absolute bottom-10 text-[9px] text-sub/30 tracking-widest uppercase">3 Seconds</p></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <div x-show="activeModule === 'nightlight'" x-cloak id="module-nightlight" class="absolute inset-0 z-50 transition-colors duration-500" :style="`background-color: hsl(${hue}, ${sat}%, ${light}%)`" x-data="nightLightApp()">
+            <button @click="goHome()" class="fixed top-8 right-10 z-50 text-[10px] uppercase tracking-widest text-white/80 hover:text-white pointer-events-auto">关闭</button>
+            <div class="character-container" @click="interact()">
+                <div class="character-body"><div class="eyes"><div class="eye"></div><div class="eye"></div></div><div class="blush left"></div><div class="blush right"></div><div class="arm left"></div><div class="arm right"></div></div><div class="feet"><div class="foot"></div><div class="foot"></div></div>
+            </div>
+            <div class="fixed bottom-10 right-10 z-20 flex flex-col items-end gap-4 pointer-events-auto">
+                <button @click="showControls = !showControls" class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/50 hover:scale-110 transition shadow-lg"><i class="fa-solid fa-sliders text-white"></i></button>
+                <div x-show="showControls" class="bg-black/80 backdrop-blur-xl p-8 rounded-2xl w-80 text-white shadow-2xl origin-bottom-right transition mb-4" x-transition>
+                    <div class="text-lg font-bold mb-6 border-b border-white/10 pb-2">氛围调节</div>
+                    <div class="space-y-6">
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>HUE</span><span x-text="hue"></span></div><input type="range" min="0" max="360" x-model="hue" class="w-full h-3 rounded-full appearance-none cursor-pointer" style="background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"></div>
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>SAT</span><span x-text="sat+'%'"></span></div><input type="range" min="0" max="100" x-model="sat" class="w-full h-3 rounded-full appearance-none cursor-pointer bg-white/20"></div>
+                        <div><div class="flex justify-between text-xs mb-2 text-gray-400"><span>INT</span><span x-text="bri+'%'"></span></div><input type="range" min="0" max="100" x-model="bri" class="w-full h-3 rounded-full appearance-none cursor-pointer bg-white/20"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSysSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'tick') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); } 
+            else if (type === 'open') { osc.type = 'triangle'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); gain.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 1.5); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2); osc.start(); osc.stop(audioCtx.currentTime + 2); }
+        }
+
+        const quotes = [
+            { cn: "生活如一杯咖啡，先苦后甜。", en: "Life is like coffee, bitter then sweet." },
+            { cn: "智者一切求自己，愚者一切求他人。", en: "The wise seek all in themselves, the fool in others." },
+            { cn: "与其互为人间，不如自成宇宙。", en: "Better to be a universe unto oneself." },
+            { cn: "凡是过往，皆为序章。", en: "What's past is prologue." },
+            { cn: "万物皆有裂痕，那是光照进来的地方。", en: "There is a crack in everything, that's how the light gets in." },
+            { cn: "人生没有白走的路，每一步都算数。", en: "No step in life is wasted." },
+            { cn: "心若向阳，无谓悲伤。", en: "If the heart faces the sun, there is no sorrow." }
+        ];
+
+        function mainApp() {
+            return {
+                tab: 'today', activeModule: null, dateStr: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
+                dailyQuote: quotes[Math.floor(Math.random() * quotes.length)],
+                bgStyle: 'background-color: #F9F7F2',
+                init() { this.initParticles(); },
+                openModule(name) { this.activeModule = name; if(name==='meditation') setTimeout(()=>window.dispatchEvent(new Event('bh-init')),50); },
+                goHome() { this.activeModule = null; },
+                handleKey(e) { window.dispatchEvent(new CustomEvent('global-keydown', {detail: e.code})); },
+                initParticles() { const canvas = document.getElementById('particle-canvas'); const ctx = canvas.getContext('2d'); let w, h, particles = []; const resize = () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }; window.addEventListener('resize', resize); resize(); for(let i=0; i<40; i++) particles.push({x:Math.random()*w, y:Math.random()*h, v:Math.random()*0.5, r:Math.random()*1.5}); function animate() { ctx.clearRect(0,0,w,h); ctx.fillStyle = '#2C2C2C'; particles.forEach(p => { p.y -= p.v; if(p.y < 0) p.y = h; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill(); }); requestAnimationFrame(animate); } animate(); }
+            }
+        }
+
+        // --- Other Apps Logic (Preserved) ---
+        function beingHereApp() { return { currentMode: 'focus', currentTheme: { s:'#E6EAE3', e:'#8FA691', name:'Bamboo', name_cn:'竹' }, isRunning: false, timer: 25 * 60, initialDuration: 25 * 60, statusText: '准备', visualStyle: '', currentBg: null, currentVoice: null, isBgPlaying: false, isVoicePlaying: false, breathPattern: '4-7-8', breathName: '舒缓', alarmSound: 'echo', isInfinite: false, isAlarmRinging: false, modes: [{ id: 'focus', label: '专注' }, { id: 'breathe', label: '呼吸' }, { id: 'sound', label: '声景' }, { id: 'mind', label: '引导' }], breathTimer: 0, soundCollections: { '自然': [ { title: "营地篝火", file: "Nature-audio/Campfire.MP3", cover: "Nature-audio/images/Cinematic_hyperdetailed_photorealistic_2k.jpeg" }, { title: "海浪", file: "Nature-audio/Seabreeze.MP3", cover: "Nature-audio/images/Waves.jpeg" }, { title: "踏雪寻梅", file: "Nature-audio/Blizzard.MP3", cover: "Nature-audio/images/A_cinematic_wideangle_2k_202601131719.jpeg" }, { title: "竹林雨声", file: "Nature-audio/Bamboo.MP3", cover: "Nature-audio/images/A_cinematic_shot_2k_202601131720.jpeg" }, { title: "鲸语", file: "Nature-audio/Leviathan.MP3", cover: "Nature-audio/images/Whale.jpeg" }, { title: "瀑布", file: "Nature-audio/Cascade.MP3", cover: "Nature-audio/images/A_cinematic_slowmotion_2k_202601131719.jpeg" }, { title: "沙丘", file: "Nature-audio/Dunes.MP3", cover: "Nature-audio/images/Desert.jpeg" }, { title: "回声谷", file: "Nature-audio/Echo.MP3", cover: "Nature-audio/images/A_cinematic_dolly_2k_202601131721.jpeg" }, { title: "碎石路", file: "Nature-audio/Gravel.MP3", cover: "Nature-audio/images/A_cinematic_tracking_2k_202601131721.jpeg" }, { title: "溪流", file: "Nature-audio/Brook.MP3", cover: "Nature-audio/images/A_cinematic_macro_2k_202601131721.jpeg" } ], '禅意': [ { title: "高山流水", file: "East-audio/Mountain Streamflow.mp3", cover: "East-audio/images/Subtle_scurve_suggesting_2k_202601131521.jpeg" }, { title: "夏日微风", file: "East-audio/Summer Breeze.mp3", cover: "East-audio/images/A_few_delicate_2k_202601131521.jpeg" }, { title: "藤蔓呼吸", file: "East-audio/Breathing Vine.mp3", cover: "East-audio/images/Single_vine_line_2k_202601131521.jpeg" }, { title: "漫漫长路", file: "East-audio/Gradual Journey.mp3", cover: "East-audio/images/Faint_path_fading_2k_202601131521.jpeg" }, { title: "月夜", file: "East-audio/Lunar Night.mp3", cover: "East-audio/images/A_single_moon_2k_202601131521.jpeg" }, { title: "炉火梦境", file: "East-audio/Hearthfire Dream.mp3", cover: "East-audio/images/Gentle_fire_glow_2k_202601131521.jpeg" }, { title: "水墨", file: "East-audio/Ink-Wash.mp3", cover: "East-audio/images/Black_ink_bleeding_2k_202601131521.jpeg" }, { title: "晨曦脉动", file: "East-audio/Dawn Pulse.mp3", cover: "East-audio/images/Soft_gradient_from_2k_202601131521.jpeg" }, { title: "虚空", file: "East-audio/Void.mp3", cover: "East-audio/images/Nearly_blank_canvas_2k_202601131521.jpeg" }, { title: "清白", file: "East-audio/Pale .mp3", cover: "East-audio/images/Pale.jpeg" } ], '书斋': [ { title: "午后", file: "Study-audio/Afternoon.mp3", cover: "Study-audio/images/A_sunlit_dustfilled_2k_202601131857.jpeg" }, { title: "古籍", file: "Study-audio/Relic.mp3", cover: "Study-audio/images/An_ancient_leatherbound_2k_202601131858.jpeg" }, { title: "茧", file: "Study-audio/Cocoon.mp3", cover: "Study-audio/images/A_soft_translucent_2k_202601131859.jpeg" }, { title: "粉色噪音", file: "Study-audio/Pink.mp3", cover: "Study-audio/images/A_visual_abstraction_2k_202601131858.jpeg" }, { title: "黑洞", file: "Study-audio/Event.mp3", cover: "Study-audio/images/A_cinematic_shot_2k_202601131906.jpeg" }, { title: "核心", file: "Study-audio/Nucleus.mp3", cover: "Study-audio/images/A_cinematic_crosssection_2k_202601131906.jpeg" }, { title: "潮汐", file: "Study-audio/Tide.mp3", cover: "Study-audio/images/A_cinematic_slowmotion_2k_202601131909.jpeg" }, { title: "迷雾", file: "Study-audio/Haze.mp3", cover: "Study-audio/images/Looking_out_from_2k_202601131907.jpeg" }, { title: "盆景", file: "Study-audio/Granular .mp3", cover: "Study-audio/images/A_closeup_of_2k_202601131859.jpeg" }, { title: "雨滴", file: "Study-audio/Circuit.mp3", cover: "Study-audio/images/A_cinematic_view_2k_202601131909.jpeg" } ], '食味': [ { title: "爆炒", file: "Food-audio/Stir-fry.MP3", cover: "Food-audio/images/Stir-fry.jpeg" }, { title: "清洗", file: "Food-audio/Washing.MP3", cover: "Food-audio/images/Washing.jpeg" }, { title: "切菜", file: "Food-audio/Cut.MP3", cover: "Food-audio/images/Cut.jpeg" }, { title: "餐具", file: "Food-audio/Tableware.MP3", cover: "Food-audio/images/Tableware.jpeg" }, { title: "饮水", file: "Food-audio/Drink.MP3", cover: "Food-audio/images/Drink.jpeg" }, { title: "咀嚼", file: "Food-audio/Chew.MP3", cover: "Food-audio/images/Chew.jpeg" }, { title: "煮沸", file: "Food-audio/Boil.MP3", cover: "Food-audio/images/Boil.jpeg" }, { title: "煎炸", file: "Food-audio/Fry.MP3", cover: "Food-audio/images/Fry.jpeg" }, { title: "嗑瓜子", file: "Food-audio/Crack.MP3", cover: "Food-audio/images/Crack.jpeg" }, { title: "撕包装", file: "Food-audio/Tear.MP3", cover: "Food-audio/images/Tear.jpeg" } ] }, mindCollections: { '减压': [ { title: "定义压力", file: "Mind-audio/定义压力.mp3", cover: "Mind-audio/images/定义压力.jpeg" }, { title: "压力觉察", file: "Mind-audio/压力觉察.mp3", cover: "Mind-audio/images/压力觉察.jpeg" }, { title: "认知提升", file: "Mind-audio/认知提升.mp3", cover: "Mind-audio/images/认知提升.jpeg" }, { title: "唤醒激情", file: "Mind-audio/唤醒激情.mp3", cover: "Mind-audio/images/唤醒激情.jpeg" }, { title: "关注当下", file: "Mind-audio/关注当下.mp3", cover: "Mind-audio/images/关注当下.jpeg" } ], '疗愈': [ { title: "情绪感知", file: "Mind-audio/情绪感知.mp3", cover: "Mind-audio/images/情绪感知.jpeg" }, { title: "聆听怒火", file: "Mind-audio/聆听怒火.mp3", cover: "Mind-audio/images/聆听怒火.jpeg" }, { title: "调整情绪", file: "Mind-audio/调整情绪.mp3", cover: "Mind-audio/images/调整情绪.jpeg" }, { title: "应对冲突", file: "Mind-audio/应对冲突.mp3", cover: "Mind-audio/images/应对冲突.jpeg" }, { title: "尝试退让", file: "Mind-audio/尝试退让.mp3", cover: "Mind-audio/images/尝试退让.jpeg" } ], '探索': [ { title: "关系之境", file: "Mind-audio/关系之境.mp3", cover: "Mind-audio/images/关系之境.jpeg" }, { title: "卸下防备", file: "Mind-audio/卸下防备.mp3", cover: "Mind-audio/images/卸下防备.jpeg" }, { title: "聆听情绪", file: "Mind-audio/聆听情绪.mp3", cover: "Mind-audio/images/聆听情绪.jpeg" }, { title: "遇见本我", file: "Mind-audio/遇见本我.mp3", cover: "Mind-audio/images/遇见本我.jpeg" }, { title: "新生之旅", file: "Mind-audio/新生之旅.mp3", cover: "Mind-audio/images/新生之旅.jpeg" } ] }, init() { window.addEventListener('bh-init', () => this.setTheme(this.currentTheme)); window.addEventListener('global-keydown', () => { if (this.isAlarmRinging) this.stopAlarm(); }); }, switchMode(id) { this.currentMode = id; }, setTheme(s) { this.currentTheme = s; this.$root.parentElement.__x.$data.bgStyle = `background: linear-gradient(160deg, ${s.s}, ${s.e})`; }, setDuration(v) { if(v==0){this.isInfinite=true;this.timer=0;this.statusText='正计时'}else{this.isInfinite=false;this.timer=v*60;this.initialDuration=this.timer;this.statusText='准备'} this.isRunning=false; clearInterval(this.interval); this.stopAlarm(); }, setBreath(p,n) { this.breathPattern=p; this.breathName=n; this.statusText='准备'; this.isRunning=false; }, setAlarm(s) { this.alarmSound=s; }, toggle() { if(this.isAlarmRinging) { this.stopAlarm(); return; } this.isRunning=!this.isRunning; if(this.isRunning){ if(this.currentMode==='focus')this.startFocus(); else if(this.currentMode==='breathe')this.startBreathe(); if(this.currentBg && !this.isBgPlaying) { document.getElementById('audio-bg').play(); this.isBgPlaying = true; } if(this.currentVoice && !this.isVoicePlaying) { document.getElementById('audio-voice').play(); this.isVoicePlaying = true; } } else { clearInterval(this.interval); this.statusText='暂停'; this.visualStyle='transform:scale(1)'; if(this.isBgPlaying) { document.getElementById('audio-bg').pause(); this.isBgPlaying = false; } if(this.isVoicePlaying) { document.getElementById('audio-voice').pause(); this.isVoicePlaying = false; } } }, startFocus() { this.statusText = this.isInfinite ? '正计时' : '专注中...'; clearInterval(this.interval); this.interval = setInterval(() => { if(this.isInfinite) this.timer++; else { this.timer--; if(this.timer<=0) { this.reset(); this.playAlarm(); } } }, 1000); }, startBreathe() { const runTimer = (duration) => { let t = duration; this.breathTimer = t; return new Promise(resolve => { const iv = setInterval(() => { t--; this.breathTimer = t; if (t <= 0) { clearInterval(iv); resolve(); } }, 1000); }); }; const cycle = async () => { if(!this.isRunning) return; if (this.breathPattern === '4-7-8') { this.statusText = '吸气'; this.visualStyle = `transform: scale(1.3); transition-duration: 4s`; await runTimer(4); if(!this.isRunning) return; this.statusText = '保持'; this.visualStyle = `transform: scale(1.3); transition-duration: 0s`; await runTimer(7); if(!this.isRunning) return; this.statusText = '呼气'; this.visualStyle = `transform: scale(1); transition-duration: 8s`; await runTimer(8); } else { this.statusText = '吸气'; this.visualStyle = `transform: scale(1.3); transition-duration: 5s`; await runTimer(5); if(!this.isRunning) return; this.statusText = '保持'; this.visualStyle = `transform: scale(1.3); transition-duration: 0s`; await runTimer(5); if(!this.isRunning) return; this.statusText = '呼气'; this.visualStyle = `transform: scale(1); transition-duration: 5s`; await runTimer(5); if(!this.isRunning) return; this.statusText = '保持'; this.visualStyle = `transform: scale(1); transition-duration: 0s`; await runTimer(5); } if(this.isRunning) cycle(); }; cycle(); }, playAlarm() { const alarm = document.getElementById('alarm-audio'); let src = 'Nature-audio/Echo.MP3'; if(this.alarmSound === 'campfire') src = 'Nature-audio/Campfire.MP3'; if(this.alarmSound === 'seabreeze') src = 'Nature-audio/Seabreeze.MP3'; alarm.src = src; alarm.loop = true; alarm.play().then(() => this.isAlarmRinging = true); }, stopAlarm() { const a = document.getElementById('alarm-audio'); a.pause(); a.currentTime = 0; a.loop = false; this.isAlarmRinging = false; this.statusText = '完成'; }, playSample(src) { const a = document.getElementById('alarm-audio'); a.src = src; a.loop = false; a.play(); setTimeout(() => { if(!this.isAlarmRinging) a.pause(); }, 3000); }, playSound(track, type) { const audioId = type === 'bg' ? 'audio-bg' : 'audio-voice'; const audio = document.getElementById(audioId); const isCurrent = (type === 'bg' ? this.currentBg : this.currentVoice) === track.file; const isPlaying = type === 'bg' ? this.isBgPlaying : this.isVoicePlaying; if (isCurrent && isPlaying) { audio.pause(); if(type==='bg') this.isBgPlaying=false; else this.isVoicePlaying=false; } else { audio.src = track.file; audio.play(); if(type==='bg') { this.currentBg=track.file; this.isBgPlaying=true; } else { this.currentVoice=track.file; this.isVoicePlaying=true; } } }, reset() { this.isRunning=false; clearInterval(this.interval); this.timer=this.isInfinite?0:this.initialDuration; this.statusText='准备'; this.visualStyle='transform:scale(1)'; this.breathTimer=0; document.getElementById('audio-bg').pause(); this.isBgPlaying=false; document.getElementById('audio-voice').pause(); this.isVoicePlaying=false; }, get timerDisplay() { const t=Math.abs(this.timer); const m=Math.floor(t/60); const s=t%60; return `${m<10?'0'+m:m}:${s<10?'0'+s:s}`; } } }
+        function journalApp() { return { view: 'write', dateDisplay: new Date().toLocaleDateString('zh-CN', {weekday:'long', year:'numeric', month:'long', day:'numeric'}), entry: { moodVal: 'Calm', achievement: '', gratitude: '', moodText: '' }, history: [], quote: { cn: "命运不是风，来回吹，命运是大地，走到哪你都在命运中。", en: "Fate is not the wind, but the earth." }, init() { const saved = localStorage.getItem('journal_history'); if(saved) this.history = JSON.parse(saved); }, save() { if(!this.entry.moodText.trim() && !this.entry.achievement.trim()) return; const rec = { id: Date.now(), dateStr: new Date().toLocaleDateString('zh-CN'), moodVal: this.entry.moodVal, text: this.entry.moodText || '...', achievement: this.entry.achievement || '', gratitude: this.entry.gratitude || '' }; this.history.unshift(rec); localStorage.setItem('journal_history', JSON.stringify(this.history)); this.entry = { moodVal: 'Calm', achievement: '', gratitude: '', moodText: '' }; this.view = 'history'; }, getPreview(item) { return item.text.substring(0, 50) + (item.text.length>50?'...':''); }, showDetail(item) { alert(`【心境】${item.moodVal}\n\n${item.text}\n\n[小确幸]: ${item.achievement}\n[感恩]: ${item.gratitude}`); } } }
+        function mbtiApp() { return { step: 0, currentIdx: 0, selectedScore: null, scores: {E:0,I:0,N:0,S:0,T:0,F:0,J:0,P:0}, result: null, profiles: { 'INTJ': {name:'架构师 (Architect)', quote:'思想铸就人类的伟大。', author:'布莱士·帕斯卡', desc:'INTJ 人格类型（建筑师）求知若渴，质疑一切。他们将信念建立在坚实的证据、推理与理性之上。\n\n他们不惧打破规则，也不畏非议——事实上，他们常以此为乐。他们追求成功，而非仅仅创新。他们以全副心力投入工作，运用洞察、逻辑与意志，势不可挡。\n\nINTJ 人格类型的人，骨子里独立。他们不介意独来独往，或许部分原因是他们不愿等待他人跟上自己的步伐。'}, 'INTP': {name:'逻辑学家 (Logician)', quote:'重要的是不要停止质疑。', author:'阿尔伯特·爱因斯坦', desc:'INTP 渴望理解宇宙万物，常沉醉于自己思维的奇妙世界。他们几乎从未停止思考，从醒来的那一刻起，脑海中便充斥着想法、问题与洞见。\n\n对 INTP 而言，最棒的对话如同头脑风暴，充满非常规思维与天马行空的假设。他们是天生的发明家，独特的视角与过人的才智是他们最大的骄傲。'}, 'ENTJ': {name:'指挥官 (Commander)', quote:'生命有限，莫为他人而活。', author:'史蒂夫·乔布斯', desc:'ENTJ 是天生的领导者，兼具魅力与自信。他们凭借动力、决心与敏锐头脑，达成既定目标。\n\n在谈判桌上，无论企业环境还是购车场景，ENTJ 都强势、无情且不屈不挠。这并非因为他们冷酷，而是他们真正享受挑战、智力较量与机智对答。若对方跟不上节奏，他们也不会因此放弃对最终胜利的追求。'}, 'ENTP': {name:'辩论家 (Debater)', quote:'追随独立思考者的道路。', author:'托马斯·J·沃森', desc:'ENTP 人格类型（辩论家）机智大胆，不惧挑战现状。他们热衷于将他人论点撕成碎片，是终极的“魔鬼代言人”。\n\n对他们而言，无信仰不可质疑，无想法不可审视。这种特质或令 ENTP 显得轻率挑衅，但其核心是对创新与变革的渴望。他们通过反驳来探索真理，从不同视角看世界。'}, 'INFJ': {name:'提倡者 (Advocate)', quote:'以人应然之态待之，方能助其臻于所能之境。', author:'歌德', desc:'INFJ 既理想主义，又坚守原则。他们不甘随波逐流，渴望挺身而出，有所作为。\n\n他们内心世界丰盈，一心执着于探寻人生意义。虽然有时会觉得与周围人格格不入，但这并未消磨他们造福世间的决心。他们常感使命在肩，凭借创造力与同理心，去鼓舞他人、播撒善意。'}, 'INFP': {name:'调停者 (Mediator)', quote:'真金未必璀璨，徘徊之人未必迷失。', author:'J.R.R. 托尔金', desc:'INFP 外表或许文静，但内心如熊熊烈火。他们是真正的理想主义者，总是从最坏的人和事中寻找最好的一面。\n\n同理心是他们最宝贵的禀赋。世间的种种烦忧如千钧重担，但他们凭借细腻的感知与超凡的创造力，能与他人建立深厚且真挚的联系。他们深知世界难达完美，却依旧不遗余力让它变得更好。'}, 'ENFJ': {name:'主人公 (Protagonist)', quote:'当举世皆寂，哪怕一声轻呼，亦能振聋发聩。', author:'马拉拉', desc:'ENFJ 是天生的领导者，充满激情与魅力。他们真诚地关心他人，能够以此鼓舞人心，带来积极的改变。\n\n这类人自觉肩负着实现崇高目标的使命。面对正义之举，他们向来毫不犹豫。他们独具敏锐洞察力，能精准洞悉他人动机，在交流时极具说服力与感召力。'}, 'ENFP': {name:'活动家 (Campaigner)', quote:'我想知晓你是否有勇气逐梦。', author:'奥利亚·孟腾·德雷默', desc:'ENFP 是真正的自由精神。他们外向热忱、思想豁达，在任何群体中都能脱颖而出。\n\n他们不仅热衷于寻欢作乐，更渴望与他人建立真挚的情感联系。凭借天马行空的想象力与旺盛的好奇心，他们始终在日常生活的点滴之中寻觅奇妙与意义。'}, 'ISTJ': {name:'物流师 (Logistician)', quote:'若不施展天赋，我定深感惶恐。', author:'丹泽尔·华盛顿', desc:'ISTJ 向来言出必行，表里如一。他们是脚踏实地的践行者，对结构与传统怀有深切敬意。\n\n在这个不少人逃避责任的世界里，ISTJ 以其敬业、负责与诚实的品质脱颖而出。他们行事低调，却为稳固社会基石竭尽全力。他们坚守内心的正直，只求问心无愧。'}, 'ISFJ': {name:'守护者 (Defender)', quote:'爱，唯有分享，方能滋长。', author:'布莱恩·崔西', desc:'ISFJ 谦逊低调，如幕后的无名英雄。他们勤奋敬业，对身边之人怀有深切的责任感。\n\n他们既心思敏感、关爱他人，又具备卓越的分析能力。作为纯粹的利他主义者，他们以赤诚善意待人，时刻准备着保护和捍卫所爱之人，全力为其遮风挡雨。'}, 'ESTJ': {name:'管理者 (Executive)', quote:'良好秩序乃万物之基。', author:'埃德蒙·伯克', desc:'ESTJ 是传统和秩序的化身。他们坚守诚实与专注，善于将人们团结起来，是出色的社区组织者。\n\n他们对法治深信不疑，以自身行动为标杆，对懒惰与欺诈行径嗤之以鼻。面对挑战，他们欣然担当先锋，披荆斩棘，让哪怕最为复杂的任务，也能在他们手中变得井井有条。'}, 'ESFJ': {name:'执政官 (Consul)', quote:'彼此激励、相互扶持。', author:'黛博拉·戴', desc:'ESFJ 极有同情心，乐于助人。对于他们来说，生活在与他人的分享中绽放光彩。\n\n他们是众多社区的坚实根基，时刻关注周围人的需求，并竭尽全力让每个人都感到被重视。无论他人秉持何种信仰，ESFJ 始终笃信热情好客与彬彬有礼的力量，致力于维护和谐与团结。'}, 'ISTP': {name:'鉴赏家 (Virtuoso)', quote:'我一心向往充满趣味与挑战的生活。', author:'哈里森·福特', desc:'ISTP 是天生的制造者，热衷于凭借双手与双眼探索世界。他们冷静的理性主义和旺盛的好奇心在身上完美结合。\n\n他们解决问题时单刀直入，不喜欢繁琐的流程。虽然常被冠以神秘之名，但实则坦率直白。他们骨子里坚持真实自我，特立独行，绝不盲目遵循社会规范。'}, 'ISFP': {name:'冒险家 (Adventurer)', quote:'一日之间，我判若两人。', author:'鲍勃·迪伦', desc:'ISFP 是真正的艺术家——生活就是他们自我表达的画布。他们灵动迷人，随时准备探索和体验新事物。\n\n他们秉持随遇而安的态度，以极具感染力的积极态度直面生活。他们拥有开放的心态，欣赏世界的多元性，期望每个人都能自由地依心而活，不被评判。'}, 'ESTP': {name:'企业家 (Entrepreneur)', quote:'人生若非一场勇敢的冒险，便毫无意义。', author:'海伦·凯勒', desc:'ESTP 总是对周围的环境产生影响。他们活在当下，行动迅速，是聚会中的焦点。\n\n他们竞争意识强烈，常视竞争为生活必要。理论和抽象概念无法吸引他们，他们更倾向于直接行动，在过程中修正错误。他们勇往直前，不惧风险，敢于率性而为。'}, 'ESFP': {name:'表演者 (Entertainer)', quote:'毫不犹豫地过好每分每秒。', author:'埃尔顿·约翰', desc:'ESFP 是天生的表演者。他们热爱聚光灯，世界就是他们的舞台。有他们相伴，生活绝不会枯燥。\n\n他们极易陶醉于当下的兴奋氛围，也盼身边人感同身受。除了社交天赋，他们还有着独特的审美眼光。他们慷慨、热情，让生活充满乐趣，是真正的“活在当下”的践行者。'} }, questions: [ {q:"你经常结交新朋友。", d:'E'}, {q:"复杂和新颖的想法比简单直接的想法更能激发你的兴趣。", d:'N'}, {q:"你通常更容易被能引起你情感共鸣的观点说服。", d:'F'}, {q:"你的生活和工作空间都很干净整洁。", d:'J'}, {q:"你通常能够保持冷静，即使在很大的压力下也是如此。", d:'T'}, {q:"你觉得与陌生人建立关系或自我推销是一件非常令人畏惧的事情。", d:'I'}, {q:"你能够有效地确定任务优先级并进行规划。", d:'J'}, {q:"人们的故事和情感对你来说更有说服力。", d:'F'}, {q:"你喜欢使用日程表和清单等整理工具。", d:'J'}, {q:"即使是一个小小的错误，也可能让你怀疑自己的整体能力。", d:'T'}, {q:"你很自在地走到你觉得有趣的人面前，主动与他们交谈。", d:'E'}, {q:"你对关于创意作品不同解读的讨论不太感兴趣。", d:'S'}, {q:"在决定行动方案时，你更看重事实，而不是人们的感受。", d:'T'}, {q:"你经常让一天自然而然地展开，完全没有任何计划。", d:'P'}, {q:"你很少担心自己是否能给遇到的人留下好印象。", d:'T'}, {q:"你喜欢参与团队合作的活动。", d:'E'}, {q:"你喜欢尝试新的、尚未经过验证的方法。", d:'N'}, {q:"你更看重体贴他人，而不是一味追求完全的坦诚。", d:'F'}, {q:"你主动寻找新的体验和知识领域进行探索。", d:'N'}, {q:"你容易担心事情会变得更糟。", d:'F'}, {q:"你更喜欢独自进行的爱好或活动，而不是集体的。", d:'I'}, {q:"你无法想象自己以写虚构故事为生。", d:'S'}, {q:"你在做决策时更注重效率，即使这意味着要忽略某些情感因素。", d:'T'}, {q:"你倾向于在放松之前先完成家务。", d:'J'}, {q:"有意见分歧时，你更重视证明自己的观点，而不是顾全他人的感受。", d:'T'}, {q:"在社交场合，你通常会等别人先自我介绍。", d:'I'}, {q:"你的情绪变化得非常快。", d:'F'}, {q:"你不容易被情绪化的论点所影响。", d:'T'}, {q:"你经常拖到最后一刻才去做事情。", d:'P'}, {q:"你喜欢辩论道德难题。", d:'T'}, {q:"你通常更喜欢与他人在一起，而不是独自一人。", d:'E'}, {q:"当讨论变得非常理论化时，你会感到无聊或失去兴趣。", d:'S'}, {q:"当事实与感受发生冲突时，你通常会选择跟随自己的内心。", d:'F'}, {q:"你发现很难保持规律的工作或学习计划。", d:'P'}, {q:"你很少会对自己所做的决定产生怀疑。", d:'T'}, {q:"你的朋友会说你性格活泼外向。", d:'E'}, {q:"你喜欢多种形式的创意表达，比如写作。", d:'N'}, {q:"你通常根据客观事实而不是情感印象来做出选择。", d:'T'}, {q:"你喜欢为每天制定待办事项清单。", d:'J'}, {q:"你很少感到不安。", d:'T'}, {q:"你避免打电话。", d:'I'}, {q:"你喜欢探索陌生的想法和观点。", d:'N'}, {q:"你可以很容易地与刚认识的人建立联系。", d:'E'}, {q:"如果你的计划被打乱，你的首要任务就是尽快让一切恢复正轨。", d:'J'}, {q:"你依然为很久以前犯下的错误感到困扰。", d:'F'}, {q:"你对讨论未来世界可能会是什么样子的理论并不太感兴趣。", d:'S'}, {q:"你的情绪对你的影响大于你对它们的掌控。", d:'F'}, {q:"在做决定时，你更关注受影响者的感受。", d:'F'}, {q:"你的个人工作方式更像是一时的能量爆发，而不是有条理和持续的努力。", d:'P'}, {q:"当有人很看重你时，你会想，他们多久之后会对你感到失望。", d:'F'}, {q:"你会喜欢一份大部分时间需要独自工作的工作。", d:'I'}, {q:"你觉得探讨抽象的哲学问题是在浪费时间。", d:'S'}, {q:"比起安静私密的地方，你更喜欢热闹繁忙的环境。", d:'E'}, {q:"如果你觉得某个决定是对的，你通常会直接采取行动，而不需要更多的证据。", d:'J'}, {q:"你经常感到不堪重负。", d:'F'}, {q:"你做事有条不紊，每一步都不会遗漏。", d:'J'}, {q:"你更喜欢需要你提出创新解决方案的任务。", d:'N'}, {q:"在做决定时，你更倾向于依靠情感直觉，而非逻辑推理。", d:'F'}, {q:"你在应对截止日期时感到吃力。", d:'P'}, {q:"你相信事情会朝对自己有利的方向发展。", d:'T'} ], init() { const saved = localStorage.getItem('mbti_result'); if(saved) { this.result = JSON.parse(saved); this.step = 2; } }, start() { this.step=1; this.currentIdx=0; this.scores={E:0,I:0,N:0,S:0,T:0,F:0,J:0,P:0}; this.selectedScore=null; }, retake() { localStorage.removeItem('mbti_result'); this.start(); }, selectScore(i) { this.selectedScore = i; }, next() { const q = this.questions[this.currentIdx]; const map = {E:'I',I:'E',N:'S',S:'N',T:'F',F:'T',J:'P',P:'J'}; if(this.selectedScore <= 3) this.scores[map[q.d]] += (4 - this.selectedScore); else if (this.selectedScore >= 5) this.scores[q.d] += (this.selectedScore - 4); this.selectedScore = null; if(this.currentIdx < this.questions.length - 1) this.currentIdx++; else this.calc(); }, calc() { const s = this.scores; const type = (s.E>=s.I?'E':'I') + (s.N>=s.S?'N':'S') + (s.T>=s.F?'T':'F') + (s.J>=s.P?'J':'P'); this.result = { code: type, ...this.profiles[type] }; localStorage.setItem('mbti_result', JSON.stringify(this.result)); this.step = 2; }, handleCheat(e) { if(this.step!==1) return; if(e.key==='1'){this.selectedScore=7;this.next();} if(e.key==='2'){this.selectedScore=1;this.next();} } } }
+        function scl90App() { return { step: 0, currentPage: 0, itemsPerPage: 10, answers: new Array(90).fill(null), hasCrisis: false, results: {}, currentDate: '', hasSavedData: false, options: [ {label:"从无", val:1}, {label:"很轻", val:2}, {label:"中等", val:3}, {label:"偏重", val:4}, {label:"严重", val:5} ], questions: ["头痛", "神经过敏", "头脑中有不必要的想法", "头晕或晕倒", "对异性的兴趣减退", "对旁人责备求全", "感到别人能控制您的思想", "责怪别人制造麻烦", "忘性大", "担心自己的衣饰整齐", "容易烦恼和激动", "胸痛", "害怕空旷的场所", "感到精力下降", "想结束自己的生命", "听到旁人听不到的声音", "发抖", "感到大多数人都不可信任", "胃口不好", "容易哭泣", "同异性相处害羞", "感到受骗", "无故害怕", "发脾气", "怕单独出门", "责怪自己", "腰痛", "难以完成任务", "感到孤独", "感到苦闷", "过分担忧", "对事物不感兴趣", "感到害怕", "感情容易受伤害", "旁人能知道您的想法", "感到不被理解", "感到人们不友好", "做事必须慢", "心跳厉害", "恶心", "感到比不上他人", "肌肉酸痛", "感到被监视", "难以入睡", "做事反复检查", "难以决定", "怕乘车", "呼吸困难", "发冷发热", "避开某些场合", "脑子变空", "身体发麻", "喉咙梗塞", "前途无望", "不能集中注意", "身体软弱", "感到紧张", "手脚发重", "想到死亡", "吃得太多", "当别人看着时感到不自在", "有不属于自己的想法", "有想打人的冲动", "醒得太早", "反复洗手点数", "睡得不稳", "想摔东西", "有别人没有的想法", "对别人神经过敏", "在人多处不自在", "感到事情困难", "一阵阵恐惧", "公共场合吃东西不舒服", "经常争论", "单独时紧张", "别人评价不当", "孤单", "坐立不安", "感到无价值", "熟悉的东西变陌生", "大叫或摔东西", "害怕晕倒", "感到别人想占便宜", "为性想法苦恼", "认为应该受罚", "感到要很快做事", "身体有严重问题", "从未感到亲近", "感到有罪", "感到脑子有毛病"], get currentBatch() { return Array.from({length:this.itemsPerPage}, (_,i)=>this.currentPage*this.itemsPerPage+i).filter(i=>i<90); }, get canGoNext() { return this.currentBatch.every(i=>this.answers[i]!==null); }, get progress() { return Math.round((this.answers.filter(a=>a!==null).length/90)*100); }, get isLastPage() { return this.currentPage >= Math.ceil(90/this.itemsPerPage)-1; }, init() { const saved = localStorage.getItem('scl90_answers'); if (saved && JSON.parse(saved).length === 90) this.hasSavedData = true; this.currentDate = new Date().toLocaleDateString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit'}); }, startTest() { this.step=1; this.currentPage=0; window.scrollTo(0,0); }, restoreProgress() { this.answers = JSON.parse(localStorage.getItem('scl90_answers')); this.startTest(); }, answer(idx, val) { this.answers[idx]=val; localStorage.setItem('scl90_answers', JSON.stringify(this.answers)); }, prevPage() { if(this.currentPage>0) { this.currentPage--; window.scrollTo(0,0); } }, nextPage() { if(!this.isLastPage) { this.currentPage++; window.scrollTo(0,0); } else { this.calc(); } }, calc() { let total=0, pos=0; this.answers.forEach(v=>{ total+=v; if(v>=2)pos++; }); const factors = [ {key:"Somatization", nameCn:"躯体化", ids:[0,3,11,26,39,41,47,48,51,52,55,57]}, {key:"OCD", nameCn:"强迫", ids:[2,8,9,27,37,44,45,50,54,64]}, {key:"Interpersonal", nameCn:"人际敏感", ids:[5,20,33,35,36,40,60,68,72]}, {key:"Depression", nameCn:"抑郁", ids:[4,13,14,19,21,25,28,29,30,31,53,70,78]}, {key:"Anxiety", nameCn:"焦虑", ids:[1,16,22,32,38,56,71,77,79,85]}, {key:"Hostility", nameCn:"敌对", ids:[10,23,62,66,73,80]}, {key:"Phobic", nameCn:"恐怖", ids:[12,24,46,49,69,74,81]}, {key:"Paranoid", nameCn:"偏执", ids:[7,17,42,67,75,82]}, {key:"Psychoticism", nameCn:"精神病性", ids:[6,15,34,61,76,83,84,86,87,89]}, {key:"Other", nameCn:"其他", ids:[18,43,58,59,63,65,88]} ]; let fScores = factors.map(f => { let sum = f.ids.reduce((acc,id)=>acc+this.answers[id],0); return { key:f.key, nameEn:f.key, nameCn:f.nameCn, score:(sum/f.ids.length).toFixed(2) }; }); const dep = fScores.find(f=>f.key==='Depression').score; if(dep>3 || this.answers[14]>=3) this.hasCrisis=true; this.results = { totalScore:total, positiveCount:pos, positiveAvg:pos>0?((total-(90-pos))/pos).toFixed(2):0, factors:fScores }; this.step=2; setTimeout(()=>this.drawChart(fScores), 100); localStorage.removeItem('scl90_answers'); }, drawChart(data) { new Chart(document.getElementById('radarChart'), { type: 'radar', data: { labels: data.map(d=>d.nameCn), datasets: [{ label:'Score', data:data.map(d=>d.score), borderColor:'#2563EB', backgroundColor:'rgba(37, 99, 235, 0.1)', borderWidth:1 }] }, options: { scales: { r: { suggestedMin:1, suggestedMax:5 } }, plugins:{legend:{display:false}} } }); }, exportPDF() { const el = document.getElementById('report-content'); html2canvas(el, {scale:2}).then(c => { const img = c.toDataURL('image/png'); const pdf = new window.jspdf.jsPDF(); const props = pdf.getImageProperties(img); const h = (props.height * pdf.internal.pageSize.getWidth()) / props.width; pdf.addImage(img, 'PNG', 0, 0, pdf.internal.pageSize.getWidth(), h); pdf.save(`SCL90_Report_${this.currentDate.replace(/\//g,'-')}.pdf`); }); }, resetTest() { if(confirm('确定重新开始吗？')) { localStorage.removeItem('scl90_answers'); location.reload(); } }, handleCheat(e) { if(this.step!==1) return; let val = e.key==='1'?1 : (e.key==='2'?5:null); if(val) { this.currentBatch.forEach(idx => this.answers[idx]=val); this.nextPage(); } } } }
+        function oracleApp() { return { activeTab: 'cards', cardState: {selected:false, isShuffling:false}, currentCard: {id:0, image:''}, bookState: {isPressing:false, isOpen:false}, currentAnswer: {en:'', cn:''}, answers: [ { cn: "真正的智慧源于每日不间断的阅读与学习。", en: "True wisdom comes from constant reading." }, { cn: "承认“我不知道”是智慧的开端。", en: "Admitting 'I don't know' is the beginning of wisdom." }, { cn: "理性是道德责任。", en: "Rationality is a moral duty." }, { cn: "不要自怜，而是建设性地利用打击。", en: "Don't pity yourself; use the blow constructively." }, { cn: "避免犯蠢，胜过追求聪明。", en: "Avoiding stupidity is better than seeking brilliance." }, { cn: "学会“如何学习”，比记住答案更重要。", en: "Learning 'how to learn' is more important than memorizing answers." } ], drawRandomCard() { if(this.cardState.isShuffling) return; this.cardState.isShuffling = true; let iv = setInterval(()=>playSysSound('tick'),100); setTimeout(()=>{ clearInterval(iv); this.currentCard.id = Math.floor(Math.random()*30); this.currentCard.image = `images/${this.currentCard.id+1}.jpg`; this.cardState.isShuffling=false; this.cardState.selected=true; playSysSound('open'); }, 800); }, resetCard() { this.cardState.selected=false; }, startPress() { if(this.bookState.isOpen)return; this.bookState.isPressing=true; this.tickInterval=setInterval(()=>playSysSound('tick'),500); this.bt=setTimeout(()=>{clearInterval(this.tickInterval); this.openBook()},3000); }, endPress() { if(this.bookState.isOpen)return; clearTimeout(this.bt); clearInterval(this.tickInterval); this.bookState.isPressing=false; }, openBook() { this.bookState.isPressing=false; this.currentAnswer = this.answers[Math.floor(Math.random()*this.answers.length)]; playSysSound('open'); this.bookState.isOpen=true; }, resetBook() { this.bookState.isOpen=false; } } }
+        function nightLightApp() { return { hue: 260, sat: 100, bri: 100, showControls: false, get light() { return 10 + (this.bri / 100) * 45; }, interact() { const char = document.querySelector('#module-nightlight .character-container'); char.style.animation = 'none'; char.offsetHeight; char.style.animation = 'jelly 0.4s ease-in-out, float 5s ease-in-out infinite, bob 2s ease-in-out infinite alternate'; } } }
+    </script>
+</body>
+</html>

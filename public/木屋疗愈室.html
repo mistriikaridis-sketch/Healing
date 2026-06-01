@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>静屿 StillIsle - 听觉容器</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000000; overflow: hidden; touch-action: none; font-family: 'Helvetica Neue', sans-serif; }
+        
+        /* 引导层：点击进入 */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: #666;
+            transition: opacity 1.5s ease;
+        }
+        #overlay.fade-out { opacity: 0; pointer-events: none; }
+        
+        .hint { font-size: 12px; letter-spacing: 4px; text-transform: uppercase; margin-top: 20px; opacity: 0.7; }
+        .title { font-size: 24px; letter-spacing: 8px; font-weight: 300; color: #ccc; }
+
+        /* 极简可视化画布 */
+        canvas { display: block; width: 100%; height: 100%; opacity: 0.6; }
+
+        /* 场景名称提示（淡入淡出） */
+        #scene-name {
+            position: absolute; bottom: 10%; width: 100%; text-align: center;
+            color: #444; font-size: 12px; letter-spacing: 6px; opacity: 0;
+            transition: opacity 2s; pointer-events: none;
+        }
+        
+        /* 音量指示器 */
+        #volume-bar {
+            position: absolute; right: 0; top: 0; width: 4px; height: 0%;
+            background-color: #333; transition: height 0.1s; opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div class="title">静 屿</div>
+        <div class="hint">戴上耳机 · 点击进入</div>
+    </div>
+
+    <canvas id="visualizer"></canvas>
+    <div id="volume-bar"></div>
+    <div id="scene-name">FOREST</div>
+
+    <script>
+        // --- 1. 核心音频配置 (Audio Architecture) ---
+        const SCENARIOS = {
+            'forest': {
+                name: '深林 · DEEP WOODS',
+                color: [34, 139, 34], // RGB
+                base: 'https://actions.google.com/sounds/v1/ambiences/forest_morning.ogg',
+                effects: [
+                    'https://actions.google.com/sounds/v1/animals/grey_squirrel.ogg',
+                    'https://actions.google.com/sounds/v1/animals/crows_cawing.ogg'
+                ]
+            },
+            'rain': {
+                name: '檐雨 · NIGHT RAIN',
+                color: [65, 105, 225],
+                base: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
+                effects: [
+                    'https://actions.google.com/sounds/v1/weather/thunder_rumble.ogg'
+                ]
+            },
+            'ocean': {
+                name: '离岛 · ISOLATED ISLAND',
+                color: [0, 191, 255],
+                base: 'https://actions.google.com/sounds/v1/relax/ocean_waves.ogg',
+                effects: [
+                    'https://actions.google.com/sounds/v1/animals/seagulls.ogg'
+                ]
+            }
+        };
+
+        const STATE = {
+            ctx: null,           // AudioContext
+            masterGain: null,    // 主音量
+            eqFilter: null,      // 时间感知 EQ
+            analyser: null,      // 可视化分析器
+            currentScenario: 'forest',
+            isPlaying: false,
+            volume: 0.7,
+            baseSource: null,    // 当前基础层音源
+            baseGain: null,      // 基础层音量
+            effectTimer: null,   // 间歇音效计时器
+            longPressTimer: null,
+            touchStartY: 0,
+            touchStartY_Vol: 0
+        };
+
+        // --- 2. 音频引擎 (Audio Engine) ---
+        
+        async function initAudio() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            STATE.ctx = new AudioContext();
+
+            // 主通道链路：Source -> EQ -> Master -> Analyser -> Destination
+            STATE.masterGain = STATE.ctx.createGain();
+            STATE.masterGain.gain.value = STATE.volume;
+
+            // 时间感知 EQ (Dynamic EQ)
+            STATE.eqFilter = STATE.ctx.createBiquadFilter();
+            applyTimeAwareEQ(); // 检测时间并应用
+
+            // 分析器
+            STATE.analyser = STATE.ctx.createAnalyser();
+            STATE.analyser.fftSize = 256;
+
+            // 连接
+            STATE.masterGain.connect(STATE.eqFilter);
+            STATE.eqFilter.connect(STATE.analyser);
+            STATE.analyser.connect(STATE.ctx.destination);
+
+            await loadScene(STATE.currentScenario);
+            scheduleEffects();
+            renderVisualizer();
+        }
+
+        // 时间感知逻辑：晚上削减高频，声音更暖
+        function applyTimeAwareEQ() {
+            const hour = new Date().getHours();
+            const isNight = hour >= 20 || hour < 6;
+            
+            if (isNight) {
+                STATE.eqFilter.type = 'lowshelf';
+                STATE.eqFilter.frequency.value = 2000;
+                STATE.eqFilter.gain.value = -10; // 降低高频
+                console.log("Night Mode: High frequencies dampened.");
+            } else {
+                STATE.eqFilter.type = 'allpass'; // 白天直通
+                console.log("Day Mode: Full spectrum.");
+            }
+        }
+
+        // 加载并播放场景 (含交叉淡入淡出)
+        async function loadScene(key) {
+            const sceneData = SCENARIOS[key];
+            showToast(sceneData.name);
+
+            // 1. 淡出旧声音
+            if (STATE.baseGain) {
+                const oldGain = STATE.baseGain;
+                oldGain.gain.linearRampToValueAtTime(0, STATE.ctx.currentTime + 2); // 2秒淡出
+                setTimeout(() => oldGain.disconnect(), 2000);
+            }
+            if (STATE.baseSource) {
+                try { STATE.baseSource.stop(STATE.ctx.currentTime + 2); } catch(e){}
+            }
+
+            // 2. 加载新声音 (流式加载)
+            const audio = new Audio();
+            audio.src = sceneData.base;
+            audio.crossOrigin = "anonymous";
+            audio.loop = true;
+
+            // Web Audio 节点化
+            const source = STATE.ctx.createMediaElementSource(audio);
+            const gain = STATE.ctx.createGain();
+            gain.gain.value = 0; // 初始静音
+
+            source.connect(gain);
+            gain.connect(STATE.masterGain);
+
+            audio.play();
+            
+            // 3. 淡入新声音
+            gain.gain.linearRampToValueAtTime(1, STATE.ctx.currentTime + 3); // 3秒淡入
+
+            STATE.baseSource = audio; // 注意：这里存的是 Audio Element 不是 BufferSource，为了方便流式
+            STATE.baseGain = gain;
+            STATE.currentScenario = key;
+        }
+
+        // 间歇层逻辑 (Intermittent Layer)
+        function scheduleEffects() {
+            if (STATE.effectTimer) clearTimeout(STATE.effectTimer);
+
+            // 随机间隔 15s - 45s
+            const delay = Math.random() * (45000 - 15000) + 15000;
+            
+            STATE.effectTimer = setTimeout(() => {
+                playRandomEffect();
+                scheduleEffects(); // 递归调用
+            }, delay);
+        }
+
+        function playRandomEffect() {
+            const sceneData = SCENARIOS[STATE.currentScenario];
+            if (!sceneData.effects || sceneData.effects.length === 0) return;
+
+            const url = sceneData.effects[Math.floor(Math.random() * sceneData.effects.length)];
+            const audio = new Audio(url);
+            audio.crossOrigin = "anonymous";
+            
+            // 随机化处理 (Humanize)
+            const source = STATE.ctx.createMediaElementSource(audio);
+            const panner = STATE.ctx.createStereoPanner();
+            const gain = STATE.ctx.createGain();
+
+            // 随机声像 (-0.8 到 0.8)
+            panner.pan.value = (Math.random() * 1.6) - 0.8;
+            // 随机音量 (0.3 到 0.6，不要太响)
+            gain.gain.value = Math.random() * 0.3 + 0.3;
+
+            source.connect(panner);
+            panner.connect(gain);
+            gain.connect(STATE.masterGain);
+
+            audio.play();
+            // 播放完自动断开连接
+            audio.onended = () => {
+                source.disconnect();
+                panner.disconnect();
+                gain.disconnect();
+            };
+        }
+
+        // --- 3. 极简可视化 (Visualizer) ---
+        function renderVisualizer() {
+            const canvas = document.getElementById('visualizer');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            const bufferLength = STATE.analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const sceneColor = SCENARIOS[STATE.currentScenario].color;
+
+            function draw() {
+                requestAnimationFrame(draw);
+                STATE.analyser.getByteFrequencyData(dataArray);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; // 拖影效果
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 计算平均能量
+                let sum = 0;
+                for(let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const avg = sum / bufferLength;
+
+                // 绘制呼吸圆环
+                ctx.beginPath();
+                // 半径随音量跳动
+                const r = 50 + (avg * 0.5); 
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.strokeStyle = `rgba(${sceneColor[0]}, ${sceneColor[1]}, ${sceneColor[2]}, 0.3)`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 绘制极简波纹
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * 1.5, 0, 2 * Math.PI);
+                ctx.strokeStyle = `rgba(${sceneColor[0]}, ${sceneColor[1]}, ${sceneColor[2]}, 0.1)`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            draw();
+        }
+
+        // --- 4. 手势交互 (Invisible UI) ---
+        const overlay = document.getElementById('overlay');
+        const volBar = document.getElementById('volume-bar');
+
+        // 启动
+        overlay.addEventListener('click', async () => {
+            await initAudio();
+            overlay.classList.add('fade-out');
+            STATE.isPlaying = true;
+        });
+
+        // 触摸控制
+        window.addEventListener('touchstart', (e) => {
+            if (!STATE.isPlaying) return;
+            STATE.touchStartY = e.touches[0].clientY;
+            STATE.touchStartY_Vol = STATE.volume;
+
+            // 长按检测
+            STATE.longPressTimer = setTimeout(() => {
+                switchNextScene();
+                // 震动反馈 (如设备支持)
+                if (navigator.vibrate) navigator.vibrate(50);
+            }, 1000); // 1秒长按切换
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!STATE.isPlaying) return;
+            
+            // 如果移动了，就取消长按
+            const moveY = e.touches[0].clientY;
+            if (Math.abs(moveY - STATE.touchStartY) > 10) {
+                clearTimeout(STATE.longPressTimer);
+            }
+
+            // 计算音量变化 (上滑增加，下滑减小)
+            const delta = (STATE.touchStartY - moveY) / window.innerHeight; // 归一化
+            let newVol = STATE.touchStartY_Vol + (delta * 1.5); // 灵敏度系数
+            newVol = Math.max(0, Math.min(1, newVol));
+            
+            setVolume(newVol);
+        });
+
+        window.addEventListener('touchend', () => {
+            clearTimeout(STATE.longPressTimer);
+            setTimeout(() => { volBar.style.opacity = 0; }, 1000); // 隐藏音量条
+        });
+
+        function setVolume(val) {
+            STATE.volume = val;
+            if (STATE.masterGain) STATE.masterGain.gain.cancelScheduledValues(0);
+            if (STATE.masterGain) STATE.masterGain.gain.value = val;
+            
+            // UI 更新
+            volBar.style.height = (val * 100) + '%';
+            volBar.style.opacity = 0.8;
+            // 变色提示
+            if (val > 0.9) volBar.style.backgroundColor = '#ff4444';
+            else volBar.style.backgroundColor = '#fff';
+        }
+
+        function switchNextScene() {
+            const keys = Object.keys(SCENARIOS);
+            let idx = keys.indexOf(STATE.currentScenario);
+            idx = (idx + 1) % keys.length;
+            loadScene(keys[idx]);
+        }
+
+        function showToast(text) {
+            const el = document.getElementById('scene-name');
+            el.innerText = text;
+            el.style.opacity = 1;
+            setTimeout(() => el.style.opacity = 0, 3000);
+        }
+
+    </script>
+</body>
+</html>

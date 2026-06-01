@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BeingHere | 专注空间</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-start: #E6EAE3;
+            --bg-end: #8FA691;
+            --accent: #5D4037;
+            --text-main: #2C3E50;
+            --sidebar-width: 260px;
+            --font-serif: 'Noto Serif SC', serif;
+            --font-sans: 'Lato', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body, html {
+            width: 100%; height: 100%; overflow: hidden;
+            font-family: var(--font-sans);
+            color: var(--text-main);
+            transition: color 1.2s ease;
+            user-select: none;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
+
+        #bg-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(160deg, var(--bg-start), var(--bg-end));
+            z-index: -3; transition: background 2s ease-in-out;
+        }
+        #noise-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.06; pointer-events: none; z-index: -2;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+        }
+        #particle-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none;
+        }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            position: absolute; left: 0; top: 0; height: 100%; width: var(--sidebar-width);
+            display: flex; flex-direction: column; padding: 40px 25px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            z-index: 20; transition: transform 0.3s ease;
+        }
+
+        .logo-area { margin-bottom: 40px; opacity: 0.9; }
+        .logo-main {
+            font-family: var(--font-serif); font-size: 1.8rem; font-weight: 600; 
+            letter-spacing: 0.05em; line-height: 1; margin-bottom: 8px;
+        }
+        .logo-sub {
+            font-family: var(--font-sans); font-size: 0.75rem; 
+            opacity: 0.7; font-weight: 400; letter-spacing: 0.05em;
+        }
+
+        .nav-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .nav-header {
+            font-size: 0.75rem; opacity: 0.5; margin: 20px 0 10px 10px; font-weight: 700;
+        }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 15px; border-radius: 12px;
+            cursor: pointer; opacity: 0.7; transition: all 0.3s;
+            font-size: 0.95rem; font-weight: 400; letter-spacing: 1px;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.2); opacity: 1; }
+        .nav-item.active { background: var(--text-main); color: var(--bg-start); opacity: 1; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .nav-item i { width: 20px; text-align: center; font-size: 1.1em; }
+
+        .stats-card {
+            background: rgba(255,255,255,0.2);
+            border-radius: 16px; padding: 20px;
+            margin-top: auto; 
+        }
+        .stats-header { font-size: 0.75rem; letter-spacing: 1px; opacity: 0.7; margin-bottom: 15px; }
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
+        .stats-val { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 600; }
+        .stats-label { font-size: 0.7rem; opacity: 0.6; }
+        .check-in-badge {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: rgba(255,255,255,0.3); padding: 8px; border-radius: 8px;
+            font-size: 0.8rem; margin-top: 10px;
+        }
+        .check-in-badge.done { background: var(--text-main); color: var(--bg-start); }
+
+        /* --- Main App --- */
+        #app {
+            position: absolute; left: var(--sidebar-width); top: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .top-tools {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; gap: 20px;
+            z-index: 100;
+        }
+        .tool-btn {
+            width: 40px; height: 40px; border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: 0.3s; background: rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+        }
+        .tool-btn:hover { background: rgba(255,255,255,0.3); transform: rotate(15deg); }
+
+        /* --- Content Container --- */
+        #content-container {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        /* Timer View */
+        .timer-view {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%; height: 100%;
+        }
+
+        .circle-container {
+            position: relative; width: 450px; height: 450px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 50%; cursor: default;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .circle-container.breathe-active {
+            box-shadow: 0 0 100px rgba(255,255,255,0.1);
+        }
+        
+        /* ALARM ANIMATION */
+        @keyframes alarm-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { box-shadow: 0 0 0 40px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+        .circle-container.alarm-active {
+            animation: alarm-pulse 2s infinite;
+        }
+
+        .main-time {
+            font-family: var(--font-serif); font-size: 7rem; font-weight: 300;
+            font-variant-numeric: tabular-nums; z-index: 2; line-height: 1;
+            transition: transform 0.5s; cursor: pointer; text-align: center;
+        }
+        .main-time.text-mode { font-size: 3.5rem; white-space: nowrap; }
+
+        .sub-status {
+            font-size: 1rem; letter-spacing: 0.2em;
+            opacity: 0.6; margin-top: 15px; font-weight: 600;
+            display: none; 
+        }
+        .show-status { display: block !important; }
+
+        .action-bar {
+            margin-top: 60px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+            transition: opacity 0.3s;
+        }
+        
+        .play-btn {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: var(--text-main); color: var(--bg-start);
+            border: none; font-size: 1.8rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .play-btn:hover { transform: scale(1.05); }
+        .play-btn:active { transform: scale(0.95); }
+
+        .config-trigger {
+            font-size: 0.9rem; border-bottom: 1px dashed var(--text-main);
+            padding-bottom: 4px; cursor: pointer; opacity: 0.6; transition: 0.3s;
+            display: flex; align-items: center; gap: 8px; letter-spacing: 1px;
+        }
+        .config-trigger:hover { opacity: 1; border-bottom-style: solid; }
+
+        /* --- Audio Grid View --- */
+        .audio-grid-view {
+            display: none;
+            width: 100%; height: 100%;
+            padding: 40px 60px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+        .audio-grid-view.active { display: block; }
+
+        .grid-header {
+            font-family: var(--font-serif); font-size: 2rem; margin-top: 20px; margin-bottom: 20px;
+            text-align: left; width: 100%; color: var(--text-main);
+            border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;
+        }
+        
+        /* Unified Section Title Style */
+        .section-title {
+            font-family: var(--font-serif); font-size: 2rem; margin-top: 20px; margin-bottom: 20px;
+            text-align: left; width: 100%; color: var(--text-main);
+            border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;
+        }
+
+        .music-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 20px;
+            width: 100%;
+            padding-bottom: 20px;
+        }
+
+        .music-card {
+            background: rgba(255,255,255,0.4);
+            border-radius: 16px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            backdrop-filter: blur(5px);
+        }
+        .music-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            background: rgba(255,255,255,0.7);
+        }
+        .music-card.playing { border: 2px solid var(--accent); background: rgba(255,255,255,0.9); }
+        .music-card.playing .card-title { color: var(--accent); font-weight: 700; }
+        
+        .card-img {
+            width: 100%; aspect-ratio: 1/1;
+            background-color: #e0e0e0;
+            background-size: cover; background-position: center;
+            position: relative;
+        }
+        .card-img::after {
+            content: '\f04b'; /* Play Icon */
+            font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-size: 1.8rem; opacity: 0; transition: 0.3s;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .music-card:hover .card-img::after { opacity: 0.9; }
+        .music-card.playing .card-img::after { content: '\f04c'; opacity: 1; }
+
+        .card-info { padding: 10px; text-align: center; } 
+        .card-title { font-weight: 500; font-size: 0.9rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px); z-index: 200;
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        
+        .modal-panel {
+            background: #fff; width: 450px; padding: 30px; border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            transform: translateY(20px); transition: transform 0.3s;
+            color: #333;
+        }
+        .modal-overlay.open .modal-panel { transform: translateY(0); }
+        .modal-title { font-family: var(--font-serif); font-size: 1.6rem; margin-bottom: 25px; }
+        .option-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
+        
+        .option-chip {
+            padding: 15px 10px; border: 1px solid #eee; border-radius: 16px;
+            text-align: center; cursor: pointer; transition: 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column; min-height: 70px;
+        }
+        .option-chip:hover { background: #f9f9f9; border-color: #ddd; }
+        .option-chip.active { background: var(--text-main); color: #fff; border-color: var(--text-main); }
+        
+        .chip-title { font-size: 1rem; font-weight: 500; margin-bottom: 4px; line-height: 1.2; }
+        .chip-sub { font-size: 0.75rem; opacity: 0.6; font-weight: 400; }
+        .option-chip.active .chip-sub { opacity: 0.8; }
+
+        .custom-input-group { margin-top: 15px; display: none; margin-bottom: 15px; }
+        .custom-input-group.show { display: block; }
+        .custom-input {
+            width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 12px;
+            font-size: 1.2rem; font-family: var(--font-sans); text-align: center;
+            color: var(--text-main);
+        }
+
+        .sound-selector {
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;
+        }
+        .sound-label { font-size: 0.8rem; text-transform: uppercase; color: #888; margin-bottom: 10px; display: block; letter-spacing: 1px; }
+        .sound-select-box {
+            width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ddd;
+            font-family: var(--font-sans); color: #333; font-size: 1rem;
+            background: #fff; cursor: pointer;
+        }
+
+        .close-modal {
+            width: 100%; padding: 15px; background: #f2f2f2; border: none; border-radius: 14px;
+            margin-top: 20px; cursor: pointer; font-weight: 600; font-size: 1rem;
+            color: #555; transition: 0.2s;
+        }
+        .close-modal:hover { background: #e0e0e0; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); position: fixed; width: 85%; }
+            .sidebar.mobile-open { transform: translateX(0); }
+            #app { left: 0; }
+            .mobile-menu-btn { display: block; position: absolute; top: 20px; left: 20px; z-index: 30; font-size: 1.5rem; }
+            .circle-container { width: 300px; height: 300px; }
+            .main-time { font-size: 4.5rem; }
+            .main-time.text-mode { font-size: 2.5rem; }
+            .music-grid { grid-template-columns: repeat(2, 1fr); }
+            .top-tools { top: 20px; right: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bg-layer"></div>
+    <div id="noise-layer"></div>
+    <canvas id="particle-canvas"></canvas>
+
+    <i class="fa-solid fa-bars mobile-menu-btn" style="display:none" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')"></i>
+
+    <nav class="sidebar">
+        <div class="logo-area">
+            <div class="logo-main">BeingHere</div>
+            <div class="logo-sub">在此刻，即永恒</div>
+        </div>
+        
+        <div class="nav-group">
+            <div class="nav-header">灵感库</div>
+            <div class="nav-item" id="nav-guide" onclick="app.switchMode('guide')">
+                <i class="fa-solid fa-headphones-simple"></i> 声音指引
+            </div>
+            <div class="nav-item" id="nav-mind" onclick="app.switchMode('mind')">
+                <i class="fa-solid fa-spa"></i> 正念冥想
+            </div>
+            
+            <div class="nav-header" style="margin-top:20px;">工具</div>
+            <div class="nav-item active" id="nav-focus" onclick="app.switchMode('focus')">
+                <i class="fa-regular fa-clock"></i> 专注计时
+            </div>
+            <div class="nav-item" id="nav-breathe" onclick="app.switchMode('breathe')">
+                <i class="fa-solid fa-lungs"></i> 呼吸练习
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-header">你的旅程</div>
+            <div class="stats-row">
+                <div>
+                    <div class="stats-val" id="stat-days">0</div>
+                    <div class="stats-label">天</div>
+                </div>
+                <div style="text-align:right">
+                    <div class="stats-val" id="stat-mins">0</div>
+                    <div class="stats-label">分钟</div>
+                </div>
+            </div>
+            <div class="check-in-badge" id="daily-checkin">
+                <i class="fa-regular fa-circle"></i> 每日签到
+            </div>
+        </div>
+    </nav>
+
+    <div id="app">
+        
+        <div class="top-tools">
+            <div class="tool-btn" onclick="app.randomizeScene()" title="切换主题">
+                <i class="fa-solid fa-palette"></i>
+            </div>
+        </div>
+
+        <div id="content-container">
+            
+            <div id="timer-view" class="timer-view">
+                <div class="circle-container" id="visual-circle" onclick="app.toggleAction()">
+                    <div class="main-time" id="time-display">25:00</div>
+                    <div class="sub-status" id="status-display">准备</div>
+                </div>
+
+                <div class="action-bar" id="action-bar">
+                    <button class="play-btn" onclick="app.toggleAction()">
+                        <i class="fa-solid fa-play" id="icon-play"></i>
+                    </button>
+                    
+                    <div class="config-trigger" onclick="app.openSettings()">
+                        <i class="fa-solid fa-sliders"></i> <span id="current-config-label">计时设置</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="audio-grid-view" class="audio-grid-view">
+                </div>
+
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settings-modal" onclick="if(event.target===this) app.closeSettings()">
+        <div class="modal-panel">
+            <div class="modal-title" id="modal-title">计时设置</div>
+            
+            <div id="focus-options" class="option-grid">
+                <div class="option-chip active" onclick="timer.select(25, 'pomo', this)">
+                    <span class="chip-title">25m</span><span class="chip-sub">番茄钟</span>
+                </div>
+                <div class="option-chip" onclick="timer.select(5, 'timer', this)">
+                    <span class="chip-title">5m</span><span class="chip-sub">短休息</span>
+                </div>
+                <div class="option-chip" onclick="timer.select(10, 'timer', this)">
+                    <span class="chip-title">10m</span><span class="chip-sub">长休息</span>
+                </div>
+                <div class="option-chip" onclick="timer.select(30, 'timer', this)">
+                    <span class="chip-title">30m</span><span class="chip-sub">专注</span>
+                </div>
+                <div class="option-chip" onclick="timer.select(45, 'timer', this)">
+                    <span class="chip-title">45m</span><span class="chip-sub">深度</span>
+                </div>
+                <div class="option-chip" onclick="timer.select('inf', 'stopwatch', this)">
+                    <span class="chip-title">∞</span><span class="chip-sub">正计时</span>
+                </div>
+                <div class="option-chip" style="grid-column: span 3" onclick="timer.showCustom(this)">
+                    <span class="chip-title">自定义时长</span>
+                </div>
+            </div>
+
+            <div class="custom-input-group" id="custom-timer-input">
+                <input type="number" class="custom-input" id="custom-mins" placeholder="输入分钟数 (例如: 60)" oninput="timer.setCustom(this.value)">
+            </div>
+
+            <div id="breathe-options" class="option-grid" style="display:none">
+                <div class="option-chip active" onclick="breathe.select('relax', this)">
+                    <span class="chip-title">4-7-8 放松</span>
+                    <span class="chip-sub">助眠/减压</span>
+                </div>
+                <div class="option-chip" onclick="breathe.select('box', this)">
+                    <span class="chip-title">箱式呼吸</span>
+                    <span class="chip-sub">专注/平稳</span>
+                </div>
+                <div class="option-chip" onclick="breathe.select('balance', this)">
+                    <span class="chip-title">平衡呼吸</span>
+                    <span class="chip-sub">身心协调 (5-5)</span>
+                </div>
+            </div>
+
+            <div class="sound-selector" id="sound-block">
+                <label class="sound-label">结束铃声</label>
+                <select class="sound-select-box" onchange="sfx.setAlarmType(this.value)">
+                    <option value="ocean">海滩波浪</option>
+                    <option value="nature">自然之声</option>
+                </select>
+                <div style="font-size:0.75rem; color:#888; margin-top:8px;">* 按空格键停止铃声</div>
+            </div>
+
+            <button class="close-modal" onclick="app.closeSettings()">完成</button>
+        </div>
+    </div>
+
+    <audio id="custom-audio-player"></audio>
+
+    <script>
+        // --- 1. DATA CONFIGURATION ---
+        const scenes = [
+            { name: 'Bamboo', s:'#E6EAE3', e:'#8FA691', t:'#2C3E50', p:'rain' },
+            { name: 'Night',  s:'#37474F', e:'#102027', t:'#CFD8DC', p:'firefly' },
+            { name: 'Sunset', s:'#FF9A9E', e:'#FECFEF', t:'#5D4037', p:'float' },
+            { name: 'Ocean',  s:'#a8c0ff', e:'#3f2b96', t:'#E0F7FA', p:'rain' },
+            { name: 'Forest', s:'#134E5E', e:'#71B280', t:'#E8F5E9', p:'leaf' },
+            { name: 'Cherry', s:'#FBD3E9', e:'#BB377D', t:'#4A148C', p:'float' },
+            { name: 'Nebula', s:'#20002c', e:'#cbb4d4', t:'#E1BEE7', p:'firefly' },
+            { name: 'Mint',   s:'#00b09b', e:'#96c93d', t:'#F0F4C3', p:'mist' },
+            { name: 'Gold',   s:'#CAC531', e:'#F3F9A7', t:'#3E2723', p:'firefly' },
+            { name: 'Void',   s:'#000000', e:'#434343', t:'#BDBDBD', p:'ink' }
+        ];
+
+        // --- DATA COLLECTIONS ---
+        const easternTracks = [
+            { title: "高山流水", file: "Mountain Streamflow.mp3", cover: "East-audio/images/Subtle_scurve_suggesting_2k_202601131521.jpeg" },
+            { title: "夏日微风", file: "Summer Breeze.mp3", cover: "East-audio/images/A_few_delicate_2k_202601131521.jpeg" },
+            { title: "藤蔓呼吸", file: "Breathing Vine.mp3", cover: "East-audio/images/Single_vine_line_2k_202601131521.jpeg" },
+            { title: "漫漫长路", file: "Gradual Journey.mp3", cover: "East-audio/images/Faint_path_fading_2k_202601131521.jpeg" },
+            { title: "月夜", file: "Lunar Night.mp3", cover: "East-audio/images/A_single_moon_2k_202601131521.jpeg" },
+            { title: "炉火梦境", file: "Hearthfire Dream.mp3", cover: "East-audio/images/Gentle_fire_glow_2k_202601131521.jpeg" },
+            { title: "水墨", file: "Ink-Wash.mp3", cover: "East-audio/images/Black_ink_bleeding_2k_202601131521.jpeg" },
+            { title: "晨曦脉动", file: "Dawn Pulse.mp3", cover: "East-audio/images/Soft_gradient_from_2k_202601131521.jpeg" },
+            { title: "淡金空间", file: "Pale .mp3", cover: "East-audio/images/Expansive_empty_space_2k_202601131521.jpeg" },
+            { title: "虚空", file: "Void.mp3", cover: "East-audio/images/Nearly_blank_canvas_2k_202601131521.jpeg" }
+        ];
+
+        const natureTracks = [
+            { title: "营地篝火", file: "Campfire.MP3", cover: "Nature-audio/images/Cinematic_hyperdetailed_photorealistic_2k.jpeg" },
+            { title: "踏雪寻梅", file: "Blizzard.MP3", cover: "Nature-audio/images/A_cinematic_wideangle_2k_202601131719.jpeg" },
+            { title: "海浪", file: "Seabreeze.MP3", cover: "Nature-audio/images/Waves.jpeg" }, 
+            { title: "鲸语", file: "Leviathan.MP3", cover: "Nature-audio/images/Whale.jpeg" }, 
+            { title: "瀑布", file: "Cascade.MP3", cover: "Nature-audio/images/A_cinematic_slowmotion_2k_202601131719.jpeg" },
+            { title: "沙丘", file: "Dunes.MP3", cover: "Nature-audio/images/Desert.jpeg" }, 
+            { title: "回声谷", file: "Echo.MP3", cover: "Nature-audio/images/A_cinematic_dolly_2k_202601131721.jpeg" },
+            { title: "碎石路", file: "Gravel.MP3", cover: "Nature-audio/images/A_cinematic_tracking_2k_202601131721.jpeg" },
+            { title: "溪流", file: "Brook.MP3", cover: "Nature-audio/images/A_cinematic_macro_2k_202601131721.jpeg" },
+            { title: "竹林雨声", file: "Bamboo.MP3", cover: "Nature-audio/images/A_cinematic_shot_2k_202601131720.jpeg" }
+        ];
+
+        const studyTracks = [
+            { title: "午后", file: "Afternoon.mp3", cover: "Study-audio/images/A_sunlit_dustfilled_2k_202601131857.jpeg" },
+            { title: "古籍", file: "Relic.mp3", cover: "Study-audio/images/An_ancient_leatherbound_2k_202601131858.jpeg" },
+            { title: "茧", file: "Cocoon.mp3", cover: "Study-audio/images/A_soft_translucent_2k_202601131859.jpeg" },
+            { title: "粉色噪音", file: "Pink.mp3", cover: "Study-audio/images/A_visual_abstraction_2k_202601131858.jpeg" },
+            { title: "黑洞", file: "Event.mp3", cover: "Study-audio/images/A_cinematic_shot_2k_202601131906.jpeg" },
+            { title: "核心", file: "Nucleus.mp3", cover: "Study-audio/images/A_cinematic_crosssection_2k_202601131906.jpeg" },
+            { title: "潮汐", file: "Tide.mp3", cover: "Study-audio/images/A_cinematic_slowmotion_2k_202601131909.jpeg" },
+            { title: "迷雾", file: "Haze.mp3", cover: "Study-audio/images/Looking_out_from_2k_202601131907.jpeg" },
+            { title: "盆景", file: "Granular .mp3", cover: "Study-audio/images/A_closeup_of_2k_202601131859.jpeg" },
+            { title: "雨滴", file: "Circuit.mp3", cover: "Study-audio/images/A_cinematic_view_2k_202601131909.jpeg" }
+        ];
+
+        const foodTracks = [
+            { title: "爆炒", file: "Stir-fry.MP3", cover: "Food-audio/images/Stir-fry.jpeg" }, 
+            { title: "清洗", file: "Washing.MP3", cover: "Food-audio/images/Washing.jpeg" },
+            { title: "切菜", file: "Cut.MP3", cover: "Food-audio/images/Cut.jpeg" },
+            { title: "餐具", file: "Tableware.MP3", cover: "Food-audio/images/Tableware.jpeg" },
+            { title: "饮水", file: "Drink.MP3", cover: "Food-audio/images/Drink.jpeg" },
+            { title: "咀嚼", file: "Chew.MP3", cover: "Food-audio/images/Chew.jpeg" },
+            { title: "煮沸", file: "Boil.MP3", cover: "Food-audio/images/Boil.jpeg" },
+            { title: "煎炸", file: "Fry.MP3", cover: "Food-audio/images/Fry.jpeg" },
+            { title: "嗑瓜子", file: "Crack.MP3", cover: "Food-audio/images/Crack.jpeg" },
+            { title: "撕包装", file: "Tear.MP3", cover: "Food-audio/images/Tear.jpeg" }
+        ];
+
+        // --- MINDFULNESS CATEGORIZATION (REORDERED) ---
+        const mindStress = [
+            { title: "定义压力", file: "定义压力.mp3", cover: "Mind-audio/images/定义压力.jpeg" },
+            { title: "压力觉察", file: "压力觉察.mp3", cover: "Mind-audio/images/压力觉察.jpeg" },
+            { title: "认知提升", file: "认知提升.mp3", cover: "Mind-audio/images/认知提升.jpeg" },
+            { title: "唤醒激情", file: "唤醒激情.mp3", cover: "Mind-audio/images/唤醒激情.jpeg" },
+            { title: "关注当下", file: "关注当下.mp3", cover: "Mind-audio/images/关注当下.jpeg" }
+        ];
+        
+        const mindEmotion = [
+            { title: "情绪感知", file: "情绪感知.mp3", cover: "Mind-audio/images/情绪感知.jpeg" },
+            { title: "聆听怒火", file: "聆听怒火.mp3", cover: "Mind-audio/images/聆听怒火.jpeg" },
+            { title: "调整情绪", file: "调整情绪.mp3", cover: "Mind-audio/images/调整情绪.jpeg" },
+            { title: "应对冲突", file: "应对冲突.mp3", cover: "Mind-audio/images/应对冲突.jpeg" },
+            { title: "尝试退让", file: "尝试退让.mp3", cover: "Mind-audio/images/尝试退让.jpeg" }
+        ];
+
+        const mindSelf = [
+            { title: "关系之境", file: "关系之境.mp3", cover: "Mind-audio/images/关系之境.jpeg" },
+            { title: "卸下防备", file: "卸下防备.mp3", cover: "Mind-audio/images/卸下防备.jpeg" },
+            { title: "聆听情绪", file: "聆听情绪.mp3", cover: "Mind-audio/images/聆听情绪.jpeg" },
+            { title: "遇见本我", file: "遇见本我.mp3", cover: "Mind-audio/images/遇见本我.jpeg" },
+            { title: "新生之旅", file: "新生之旅.mp3", cover: "Mind-audio/images/新生之旅.jpeg" }
+        ];
+
+        // --- 2. AUDIO ENGINE (UPDATED ALARMS) ---
+        const sfx = {
+            ctx: null, alarmType: 'ocean', audioEl: null, currentPath: null, alarmAudio: null,
+            init() { 
+                window.AudioContext = window.AudioContext || window.webkitAudioContext; 
+                this.ctx = new AudioContext(); 
+                this.audioEl = document.getElementById('custom-audio-player');
+                
+                this.audioEl.addEventListener('ended', () => {
+                    document.querySelectorAll('.music-card').forEach(c => c.classList.remove('playing'));
+                    this.currentPath = null;
+                });
+                
+                this.audioEl.addEventListener('error', (e) => {
+                    console.error("Error loading audio:", e);
+                });
+            },
+            setAlarmType(type) { 
+                this.alarmType = type; 
+                // Preview sound for 3s
+                this.playAlarm(true);
+            },
+            cue(type) {
+                if(this.ctx) {
+                    if(type === 'inhale') { this.playTone(300, 'sine', 1); }
+                    else if(type === 'hold') { this.playTone(400, 'sine', 0.5); }
+                    else if(type === 'exhale') { this.playTone(200, 'sine', 1.5); }
+                }
+                if(navigator.vibrate) navigator.vibrate(type === 'exhale' ? [30,30] : 50);
+            },
+            playTone(freq, type='sine', duration=0.5) {
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + duration);
+            },
+            
+            stopAlarm() {
+                if(this.alarmAudio) {
+                    this.alarmAudio.pause();
+                    this.alarmAudio.currentTime = 0;
+                    this.alarmAudio = null;
+                }
+            },
+
+            playAlarm(isPreview = false) {
+                this.stopAlarm(); // Ensure previous is stopped
+
+                let alarmPath = "";
+                if(this.alarmType === 'ocean') alarmPath = "Nature-audio/Seabreeze.MP3";
+                else if(this.alarmType === 'nature') alarmPath = "Nature-audio/Echo.MP3";
+                
+                if(alarmPath) {
+                    this.alarmAudio = new Audio(alarmPath);
+                    if(!isPreview) {
+                        this.alarmAudio.loop = true; // Loop until space pressed
+                    }
+                    this.alarmAudio.play().catch(e => console.log("Alarm play failed", e));
+                    
+                    if(isPreview) {
+                        setTimeout(() => { this.stopAlarm(); }, 3000);
+                    }
+                }
+            },
+            
+            playFile(filename, cardElement, folderPath) {
+                if(!this.audioEl) this.init();
+                const fullPath = folderPath + filename;
+
+                if (this.currentPath === fullPath) {
+                    if (this.audioEl.paused) {
+                        this.audioEl.play();
+                        cardElement.classList.add('playing');
+                    } else {
+                        this.audioEl.pause();
+                        cardElement.classList.remove('playing');
+                    }
+                } else {
+                    document.querySelectorAll('.music-card').forEach(c => c.classList.remove('playing'));
+                    this.audioEl.src = fullPath; 
+                    this.currentPath = fullPath; 
+                    this.audioEl.load();
+                    
+                    const playPromise = this.audioEl.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(_ => {
+                            cardElement.classList.add('playing');
+                        }).catch(error => console.log("Play failed:", error));
+                    }
+                }
+            },
+            stopFile() {
+                if(this.audioEl) { 
+                    this.audioEl.pause(); 
+                    this.audioEl.currentTime = 0; 
+                    this.currentPath = null;
+                    document.querySelectorAll('.music-card').forEach(c => c.classList.remove('playing'));
+                }
+            }
+        };
+
+        // --- 3. STATS MANAGER (FIXED CHECK-IN) ---
+        const stats = {
+            data: { totalMins: 0, days: 0, lastCheckIn: null },
+            init() {
+                const saved = localStorage.getItem('zenStats');
+                if(saved) this.data = JSON.parse(saved);
+                this.checkIfCheckedIn();
+                this.render();
+            },
+            logSession(mins) {
+                if(mins <= 0) return;
+                this.data.totalMins += mins;
+                
+                const today = new Date().toDateString();
+                // Only increment days if it's a new day
+                if(this.data.lastCheckIn !== today) { 
+                    this.data.days += 1; 
+                    this.data.lastCheckIn = today; 
+                }
+                
+                this.save(); 
+                this.render();
+            },
+            checkIfCheckedIn() {
+                const today = new Date().toDateString();
+                if(this.data.lastCheckIn === today) {
+                    const badge = document.getElementById('daily-checkin');
+                    badge.classList.add('done');
+                    badge.innerHTML = '<i class="fa-solid fa-check"></i> 今日已签到';
+                }
+            },
+            save() { localStorage.setItem('zenStats', JSON.stringify(this.data)); },
+            render() {
+                document.getElementById('stat-mins').innerText = this.data.totalMins;
+                document.getElementById('stat-days').innerText = this.data.days;
+                this.checkIfCheckedIn();
+            }
+        };
+
+        // --- 4. APP CONTROLLER ---
+        const app = {
+            mode: 'focus', 
+            isAlarmRinging: false,
+            
+            init() {
+                this.randomizeScene(); particles.init(); stats.init(); this.loop();
+                document.addEventListener('click', () => { if(!sfx.ctx) sfx.init(); }, {once:true});
+                
+                // Persist state check
+                const savedMode = localStorage.getItem('currentMode') || 'focus';
+                this.switchMode(savedMode);
+
+                // Spacebar listener for stopping alarm
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space' && this.isAlarmRinging) {
+                        e.preventDefault();
+                        this.stopAlarmState();
+                    }
+                });
+
+                timer.select(25, 'pomo', document.querySelector('#focus-options .option-chip.active'));
+            },
+
+            triggerAlarmState() {
+                this.isAlarmRinging = true;
+                document.getElementById('visual-circle').classList.add('alarm-active');
+                document.getElementById('status-display').innerText = "按空格停止";
+                document.getElementById('status-display').classList.add('show-status');
+                sfx.playAlarm();
+            },
+
+            stopAlarmState() {
+                this.isAlarmRinging = false;
+                document.getElementById('visual-circle').classList.remove('alarm-active');
+                document.getElementById('status-display').innerText = "准备";
+                if (this.mode !== 'breathe') document.getElementById('status-display').classList.remove('show-status');
+                sfx.stopAlarm();
+            },
+
+            switchMode(newMode) {
+                // Save mode
+                this.mode = newMode;
+                localStorage.setItem('currentMode', newMode);
+                
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.getElementById(`nav-${newMode}`).classList.add('active');
+                
+                ['focus-options', 'breathe-options', 'guide-options', 'mind-options'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.style.display = 'none';
+                });
+                
+                // Ensure custom input is hidden by default when switching
+                document.getElementById('custom-timer-input').classList.remove('show');
+                
+                const label = document.getElementById('current-config-label');
+                const title = document.getElementById('modal-title');
+                const soundBlock = document.getElementById('sound-block');
+                
+                const timerView = document.getElementById('timer-view');
+                const gridView = document.getElementById('audio-grid-view');
+                const actionBar = document.getElementById('action-bar');
+
+                timerView.style.display = 'flex';
+                gridView.style.display = 'none';
+                actionBar.style.opacity = '1';
+                actionBar.style.pointerEvents = 'auto';
+
+                if(newMode === 'focus') {
+                    document.getElementById('focus-options').style.display = 'grid';
+                    label.innerText = '计时设置';
+                    title.innerText = '计时设置';
+                    soundBlock.style.display = 'block';
+                    if(!timer.isRunning) timer.updateDisplay();
+                } 
+                else if(newMode === 'breathe') {
+                    document.getElementById('breathe-options').style.display = 'grid';
+                    label.innerText = '呼吸模式';
+                    title.innerText = '呼吸模式';
+                    soundBlock.style.display = 'none';
+                    if(!breathe.isRunning) {
+                        document.getElementById('time-display').innerText = "00:00";
+                        document.getElementById('status-display').innerText = "点击开始";
+                        document.getElementById('status-display').classList.add('show-status');
+                    }
+                }
+                else if(newMode === 'guide') {
+                    timerView.style.display = 'none'; 
+                    gridView.style.display = 'block';
+                    actionBar.style.opacity = '0';
+                    actionBar.style.pointerEvents = 'none';
+                    
+                    this.renderFullLibrary();
+                    label.innerText = 'Select Sound';
+                    title.innerText = 'Sound Guide';
+                }
+                else if(newMode === 'mind') {
+                    timerView.style.display = 'none';
+                    gridView.style.display = 'block';
+                    actionBar.style.opacity = '0';
+                    actionBar.style.pointerEvents = 'none';
+                    
+                    this.renderMindfulnessLibrary();
+                    label.innerText = 'Mindfulness';
+                    title.innerText = 'Mindfulness';
+                }
+            },
+
+            renderFullLibrary() {
+                const container = document.getElementById('audio-grid-view');
+                container.innerHTML = ''; 
+
+                const createSection = (title, tracks, folder) => {
+                    const header = document.createElement('h2');
+                    header.className = 'grid-header';
+                    header.innerText = title;
+                    container.appendChild(header);
+
+                    const grid = document.createElement('div');
+                    grid.className = 'music-grid';
+                    
+                    tracks.forEach(track => {
+                        const card = document.createElement('div');
+                        card.className = 'music-card';
+                        if (sfx.currentPath && sfx.currentPath.includes(track.file)) {
+                            card.classList.add('playing');
+                        }
+                        card.onclick = () => sfx.playFile(track.file, card, folder);
+                        
+                        card.innerHTML = `
+                            <div class="card-img" style="background-image: url('${track.cover}')"></div>
+                            <div class="card-info">
+                                <div class="card-title">${track.title}</div>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                    container.appendChild(grid);
+                };
+
+                createSection("自然之声", natureTracks, "Nature-audio/");
+                createSection("东方禅意", easternTracks, "East-audio/");
+                createSection("深度学习", studyTracks, "Study-audio/");
+                createSection("美食治愈", foodTracks, "Food-audio/");
+            },
+
+            renderMindfulnessLibrary() {
+                const container = document.getElementById('audio-grid-view');
+                container.innerHTML = ''; 
+
+                const createSection = (title, tracks) => {
+                    const titleEl = document.createElement('h2');
+                    titleEl.className = 'grid-header'; // Changed to match Sound Guide style
+                    titleEl.innerText = title;
+                    container.appendChild(titleEl);
+
+                    const grid = document.createElement('div');
+                    grid.className = 'music-grid';
+                    
+                    tracks.forEach(track => {
+                        const card = document.createElement('div');
+                        card.className = 'music-card';
+                        if (sfx.currentPath && sfx.currentPath.includes(track.file)) {
+                            card.classList.add('playing');
+                        }
+                        card.onclick = () => sfx.playFile(track.file, card, "Mind-audio/");
+                        
+                        card.innerHTML = `
+                            <div class="card-img" style="background-image: url('${track.cover}')"></div>
+                            <div class="card-info">
+                                <div class="card-title">${track.title}</div>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                    container.appendChild(grid);
+                };
+
+                // Reordered per user request
+                createSection("压力释放", mindStress);
+                createSection("情绪疗愈", mindEmotion);
+                createSection("自我探索", mindSelf);
+            },
+
+            toggleAction() {
+                if(this.mode === 'focus') timer.toggle();
+                else if(this.mode === 'breathe') breathe.toggle();
+            },
+
+            resetAll() {
+                timer.stop(); 
+                breathe.stop(); 
+                sfx.stopFile();
+                document.getElementById('visual-circle').classList.remove('breathe-active');
+            },
+
+            randomizeScene() {
+                const r = Math.floor(Math.random() * scenes.length);
+                const theme = scenes[r];
+                const root = document.documentElement.style;
+                root.setProperty('--bg-start', theme.s); root.setProperty('--bg-end', theme.e); root.setProperty('--text-main', theme.t);
+                particles.setMode(theme.p);
+            },
+
+            toggleSound() {
+                this.isSoundOn = !this.isSoundOn;
+                document.getElementById('icon-sound').className = this.isSoundOn ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+                if(this.isSoundOn && !sfx.ctx) sfx.init();
+            },
+
+            openSettings() { document.getElementById('settings-modal').classList.add('open'); },
+            closeSettings() { document.getElementById('settings-modal').classList.remove('open'); },
+            loop() { particles.update(); requestAnimationFrame(()=>this.loop()); }
+        };
+
+        // --- 5. FOCUS TIMER ---
+        const timer = {
+            isRunning: false, duration: 25*60, timeLeft: 25*60, type: 'pomo', interval: null, accumulated: 0, 
+
+            select(val, type, el) {
+                if(app.mode !== 'focus') return;
+                document.querySelectorAll('#focus-options .option-chip').forEach(c => c.classList.remove('active'));
+                if(el) el.classList.add('active');
+                document.getElementById('custom-timer-input').classList.remove('show');
+
+                if(this.isRunning) this.stop(); 
+
+                this.type = type;
+                if(type === 'stopwatch') { 
+                    this.duration = 0; 
+                    this.timeLeft = 0; 
+                } else { 
+                    this.duration = val * 60; 
+                    this.timeLeft = this.duration; 
+                }
+                
+                this.updateDisplay(); 
+            },
+
+            showCustom(el) {
+                document.querySelectorAll('#focus-options .option-chip').forEach(c => c.classList.remove('active'));
+                el.classList.add('active');
+                document.getElementById('custom-timer-input').classList.add('show');
+                document.getElementById('custom-mins').focus();
+            },
+
+            setCustom(val) {
+                const mins = parseInt(val);
+                if(mins > 0) {
+                    if(this.isRunning) this.stop();
+                    this.type = 'timer'; 
+                    this.duration = mins * 60; 
+                    this.timeLeft = this.duration;
+                    this.updateDisplay();
+                }
+            },
+
+            toggle() { this.isRunning ? this.stop() : this.start(); },
+            start() {
+                this.isRunning = true; this.accumulated = 0;
+                document.getElementById('icon-play').className = 'fa-solid fa-pause';
+                if (this.interval) clearInterval(this.interval); 
+                this.interval = setInterval(() => {
+                    if(this.type === 'stopwatch') { this.timeLeft++; this.accumulated++; } 
+                    else { this.timeLeft--; this.accumulated++; if(this.timeLeft <= 0) this.finish(); }
+                    
+                    if(app.mode === 'focus') this.updateDisplay();
+                }, 1000);
+            },
+            stop() {
+                this.isRunning = false; clearInterval(this.interval);
+                document.getElementById('icon-play').className = 'fa-solid fa-play';
+                if(this.accumulated > 60) { stats.logSession(Math.floor(this.accumulated/60)); this.accumulated = 0; }
+            },
+            finish() {
+                this.stop(); 
+                app.triggerAlarmState(); // Start alarm logic
+                this.timeLeft = this.duration; 
+                this.updateDisplay();
+            },
+            updateDisplay() {
+                const m = Math.floor(this.timeLeft / 60); const s = this.timeLeft % 60;
+                document.getElementById('time-display').innerText = `${m<10?'0'+m:m}:${s<10?'0'+s:s}`;
+            }
+        };
+
+        // --- 6. BREATHING MODULE ---
+        const breathe = {
+            isRunning: false, pattern: 'relax', 
+            patterns: {
+                'relax': { name: '4-7-8 放松', steps: [{t:4, l:'吸气'}, {t:7, l:'保持'}, {t:8, l:'呼气'}] },
+                'box':   { name: '箱式呼吸',   steps: [{t:4, l:'吸气'}, {t:4, l:'保持'}, {t:4, l:'呼气'}, {t:4, l:'保持'}] },
+                'balance':{ name: '平衡呼吸',   steps: [{t:5, l:'吸气'}, {t:5, l:'呼气'}] }
+            },
+            select(key, el) {
+                document.querySelectorAll('#breathe-options .option-chip').forEach(c => c.classList.remove('active'));
+                if(el) el.classList.add('active');
+                this.pattern = key; 
+                this.stop();
+                document.getElementById('status-display').innerText = this.patterns[this.pattern].name;
+                document.getElementById('time-display').innerText = "00:00";
+            },
+            async start() {
+                this.isRunning = true;
+                document.getElementById('icon-play').className = 'fa-solid fa-pause';
+                document.getElementById('visual-circle').classList.add('breathe-active');
+                const sequence = this.patterns[this.pattern].steps; let activeSecs = 0;
+                while(this.isRunning) {
+                    for(let step of sequence) {
+                        if(!this.isRunning) break;
+                        this.setVisual(step.l, step.t); sfx.cue(step.l === '吸气' ? 'inhale' : step.l === '呼气' ? 'exhale' : 'hold'); 
+                        for(let i=step.t; i>0; i--) {
+                            if(!this.isRunning) break;
+                            document.getElementById('time-display').innerText = `00:0${i}`;
+                            activeSecs++; await new Promise(r => setTimeout(r, 1000));
+                        }
+                    }
+                    if(activeSecs > 60) { stats.logSession(Math.floor(activeSecs/60)); activeSecs=0; }
+                }
+            },
+            stop() {
+                this.isRunning = false;
+                document.getElementById('icon-play').className = 'fa-solid fa-play';
+                document.getElementById('visual-circle').classList.remove('breathe-active');
+                if(app.mode === 'breathe') document.getElementById('status-display').innerText = "点击开始";
+            },
+            toggle() { this.isRunning ? this.stop() : this.start(); },
+            setVisual(label, duration) {
+                const circle = document.getElementById('visual-circle');
+                if(app.mode === 'breathe') document.getElementById('status-display').innerText = label;
+                circle.style.transitionDuration = `${duration}s`;
+                if(label === '吸气') circle.style.transform = 'scale(1.3)';
+                else if(label === '呼气') circle.style.transform = 'scale(1)';
+            }
+        };
+
+        // --- 7. PARTICLES ---
+        const particles = {
+            canvas: null, ctx: null, w: 0, h: 0, list: [], mode: 'rain',
+            init() {
+                this.canvas = document.getElementById('particle-canvas'); this.ctx = this.canvas.getContext('2d');
+                this.resize(); window.addEventListener('resize', ()=>this.resize());
+            },
+            resize() { this.w = this.canvas.width = window.innerWidth; this.h = this.canvas.height = window.innerHeight; },
+            setMode(m) { 
+                this.mode = m; this.list = []; const count = (m === 'ink' || m === 'smoke') ? 25 : 60;
+                for(let i=0; i<count; i++) this.list.push(this.create()); 
+            },
+            create() { return { x: Math.random()*this.w, y: Math.random()*this.h, s: Math.random(), ph: Math.random()*10 }; },
+            update() {
+                this.ctx.clearRect(0,0,this.w,this.h);
+                this.list.forEach(p => {
+                    p.ph += 0.02; 
+                    if(this.mode === 'rain') { p.y += 10*p.s + 2; if(p.y > this.h) p.y = -10; this.ctx.fillStyle = 'rgba(255,255,255,0.3)'; this.ctx.fillRect(p.x, p.y, 1, 15*p.s); } 
+                    else if(this.mode === 'firefly') { p.x += Math.sin(p.ph)*0.5; p.y -= 0.5; if(p.y < 0) p.y = this.h; this.ctx.fillStyle = `rgba(255,255,180,${0.5+0.5*Math.sin(p.ph)})`; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, 2*p.s, 0, 6.28); this.ctx.fill(); } 
+                    else { p.y -= 0.5*p.s; p.x += Math.sin(p.ph)*0.5; if(p.y < -10) p.y = this.h+10; this.ctx.fillStyle = `rgba(255,255,255,${0.1*p.s})`; this.ctx.beginPath(); this.ctx.arc(p.x, p.y, (this.mode==='snow'?3:15)*p.s, 0, 6.28); this.ctx.fill(); }
+                });
+            }
+        };
+
+        window.onload = () => app.init();
+    </script>
+</body>
+</html>

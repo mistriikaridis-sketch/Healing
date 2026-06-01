@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>静屿 StillIsle</title>
+</head>
+<body>
+    <script src="flutter.js" charset="utf-8"></script>
+    <script>
+        window.addEventListener('load', function(ev) {
+            _flutter.loader.loadEntrypoint({
+                onEntrypointLoaded: function(engineInitializer) {
+                    engineInitializer.initializeEngine().then(function(appRunner) {
+                        appRunner.runApp();
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

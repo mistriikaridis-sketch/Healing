@@ -1,0 +1,48 @@
+2026-02-06 10:59:34,581 [INFO] ============================================================
+2026-02-06 10:59:34,584 [INFO] ============================================================
+2026-02-06 10:59:34,588 [INFO] ============================================================
+2026-02-06 10:59:34,601 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.3.4:5000
+2026-02-06 10:59:34,601 [INFO] [33mPress CTRL+C to quit[0m
+2026-02-06 11:00:09,446 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:00:09,457 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:00:09,457 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:00:09,458 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:00:09,458 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:00:09,459 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:00:09,459 [INFO]   - TTSÑÓ³Ù: avg=2124ms, max=2124ms
+2026-02-06 11:00:09,460 [INFO]   - TTSÑÓ³Ù: avg=2256ms, max=2256ms
+2026-02-06 11:02:34,833 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:02:34,843 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:02:34,844 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,844 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,844 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,845 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,845 [INFO]   - TTSÑÓ³Ù: avg=2772ms, max=2772ms
+2026-02-06 11:02:34,846 [INFO]   - TTSÑÓ³Ù: avg=2742ms, max=2742ms
+2026-02-06 11:02:34,883 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:02:34,893 [INFO]   - ÏûÏ¢Êý: 0
+2026-02-06 11:02:34,894 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,894 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,894 [INFO]   - TTSÑÓ³Ù: avg=1366ms, max=1366ms
+2026-02-06 11:02:34,894 [INFO]   - STTÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,895 [INFO]   - LLMÑÓ³Ù: avg=0ms, max=0ms
+2026-02-06 11:02:34,900 [INFO]   - TTSÑÓ³Ù: avg=1662ms, max=1662ms
+2026-02-06 15:05:20,044 [INFO] ============================================================
+2026-02-06 15:05:20,046 [INFO] ============================================================
+2026-02-06 15:05:20,057 [INFO] ============================================================
+2026-02-06 15:05:20,070 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.3.4:5000
+2026-02-06 15:05:20,070 [INFO] [33mPress CTRL+C to quit[0m
+2026-02-06 15:05:42,592 [INFO] ============================================================
+2026-02-06 15:05:42,606 [INFO] ============================================================
+2026-02-06 15:05:42,620 [INFO] ============================================================
+2026-02-06 15:05:42,641 [INFO] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.3.4:5000
+2026-02-06 15:05:42,642 [INFO] [33mPress CTRL+C to quit[0m
